@@ -1,0 +1,28 @@
+{
+  "name": "manpoweros",
+  "version": "1.0.0",
+  "description": "ManpowerOS - Manpower Agency Management SaaS",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "prepare": "husky install",
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm run dev",
+    "build": "cd server && npm run build",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^18.4.0",
+    "@commitlint/config-conventional": "^18.4.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.0",
+    "ruflo": "^3.7.0-alpha.11"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

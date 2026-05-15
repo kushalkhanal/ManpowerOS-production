@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #0F6E56;
+  --secondary: #64748b;
+  --primary-50: #F0FDF9;
+  --primary-100: #E6FCF2;
+  --primary-200: #C2F5DE;
+  --primary-500: #36A87A;
+  --primary-600: #1F8A5E;
+  --primary-700: #0F6E56;
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    cursor: inherit;
+  }
+
+  html,
+  body {
+    @apply text-gray-900 bg-gray-50;
+    cursor: default;
+    /* Prevent accidental global text caret (caret browsing-like effect). */
+    caret-color: transparent;
+  }
+
+  input,
+  textarea,
+  [contenteditable='true'] {
+    caret-color: auto;
+    cursor: text;
+  }
+
+  button,
+  [role='button'],
+  a,
+  select,
+  label[for],
+  summary {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    cursor: not-allowed;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 transition-colors;
+  }
+
+  .card {
+    @apply bg-white rounded-lg shadow;
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.96) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+.animate-modal-in {
+  animation: modal-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}

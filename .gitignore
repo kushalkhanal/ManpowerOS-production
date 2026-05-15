@@ -1,0 +1,43 @@
+# Node modules
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Build artifacts
+dist/
+client/dist/
+server/dist/
+
+# Environment variables
+.env
+
+# Logs
+logs/
+*.log
+server/logs/
+*.audit.json
+
+# OS files
+.DS_Store
+Thumbs.db
+# Added by code-review-graph
+.code-review-graph/
+
+# Ruflo / claude-flow runtime (generated, not hand-authored)
+.swarm/
+.claude-flow/
+.claude/memory.db
+.claude/agents/
+.claude/skills/
+.claude/commands/
+.claude/helpers/
+claude-flow.config.json
+
+
+
+CLAUDE.md
+start.bat
+start.sh
+ruvector.db
+
+
