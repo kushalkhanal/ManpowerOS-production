@@ -87,9 +87,9 @@ const Layout = ({ children }) => {
     {
       label: 'Records',
       items: [
-        { name: 'Passport Pool', href: '/passports', icon: BookOpen },
-        { name: 'Directory',     href: '/directory', icon: UsersRound },
-        { name: 'Documents',     href: '/documents', icon: FileText },
+        { name: 'Passport Pool', href: '/passports',          icon: BookOpen },
+        { name: 'Sponsors',      href: '/directory/sponsors', icon: Building2 },
+        { name: 'Documents',     href: '/documents',          icon: FileText },
       ],
     },
     {
@@ -98,6 +98,7 @@ const Layout = ({ children }) => {
         { name: 'Tasks', href: '/tasks', icon: CheckSquare },
         ...(canViewFinance ? [{ name: 'Finance', href: '/finance', icon: Wallet }] : []),
         { name: 'Alerts', href: '/alerts', icon: Bell, badge: counts.critical > 0 ? counts.critical : null },
+        { name: 'Staff', href: '/directory/staff', icon: UsersRound },
       ],
     },
   ];

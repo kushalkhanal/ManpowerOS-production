@@ -46,6 +46,13 @@ const medicalSchema = new mongoose.Schema({
   recheckNotificationSent: {
     type: Boolean,
     default: false
+  },
+  amount: {
+    type: Number
+  },
+  examinedBy: {
+    type: String,
+    trim: true
   }
 }, {
   timestamps: true

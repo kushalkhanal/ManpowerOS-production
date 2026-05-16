@@ -46,6 +46,7 @@ const StaffSection = () => {
   const [step, setStep] = useState(1);
   const [inviteLink, setInviteLink] = useState(null);
   const [resetPasswordTargetId, setResetPasswordTargetId] = useState(null);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [formData, setFormData] = useState({
     name: '', email: '', phone: '', role: 'agent', department: 'operations',
     joiningDate: null, salaryNPR: '', address: '', permissions: DEFAULT_PERMISSIONS.agent
@@ -146,6 +147,19 @@ const StaffSection = () => {
       setResetPasswordTargetId(null);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to reset password');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTargetId) return;
+    try {
+      await staffApi.delete(deleteTargetId);
+      toast.success('Staff deleted');
+      setDeleteTargetId(null);
+      loadStaff();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete staff');
+      setDeleteTargetId(null);
     }
   };
 
@@ -257,6 +271,7 @@ const StaffSection = () => {
                 onEdit={isAdmin ? openEdit : null}
                 onResetPassword={isAdmin ? () => setResetPasswordTargetId(member._id) : null}
                 onToggle={isAdmin ? () => handleToggle(member._id) : null}
+                onDelete={isAdmin ? () => setDeleteTargetId(member._id) : null}
               />
             ))}
           </div>
@@ -479,6 +494,16 @@ const StaffSection = () => {
         confirmVariant="warning"
         onCancel={() => setResetPasswordTargetId(null)}
         onConfirm={handleResetPassword}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(deleteTargetId)}
+        title="Delete Staff Member"
+        message="Are you sure you want to permanently delete this staff member? This cannot be undone. Staff with assigned candidates cannot be deleted."
+        confirmLabel="Delete"
+        confirmVariant="danger"
+        onCancel={() => setDeleteTargetId(null)}
+        onConfirm={handleDelete}
       />
     </div>
   );

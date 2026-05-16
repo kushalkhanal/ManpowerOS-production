@@ -19,7 +19,7 @@ const createPassport = asyncHandler(async (req, res) => {
   const {
     candidateId,
     passportNumber,
-    personalNumber,
+    guardianNumber,
     fullName,
     dateOfBirth,
     issueDate,
@@ -63,7 +63,7 @@ const createPassport = asyncHandler(async (req, res) => {
   const passportData = {
     agencyId: resolvedAgencyId,
     passportNumber,
-    personalNumber: personalNumber || undefined,
+    guardianNumber: guardianNumber || undefined,
     fullName,
     dateOfBirth: dateOfBirth || undefined,
     issueDate: issueDate || undefined,
@@ -137,7 +137,7 @@ const getPassports = asyncHandler(async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNumber)
-      .populate('candidateId', 'fullName phone status')
+      .populate('candidateId', 'fullName phone email status nationalIdNumber permanentDistrict permanentMunicipality desiredCountry desiredJobCategory skills')
       .populate('collectedBy', 'name')
       .populate('allocatedToDemandId', 'employerCompanyName employerCountry jobCategory'),
     Passport.countDocuments(filter)
@@ -155,9 +155,18 @@ const getPassportById = asyncHandler(async (req, res) => {
   const passport = await Passport.findOne(scopeFilter(req, {
     _id: req.params.id
   }))
-    .populate('candidateId', 'fullName phone')
+    .populate('candidateId', [
+      'fullName', 'phone', 'email', 'status', 'nationalIdNumber',
+      'gender', 'dateOfBirth', 'maritalStatus', 'religion',
+      'permanentProvince', 'permanentDistrict', 'permanentMunicipality', 'permanentWardNo',
+      'temporaryAddress', 'temporaryMunicipality', 'temporaryDistrict', 'temporaryProvince',
+      'bankInfo', 'training', 'academic', 'nomineeInfo',
+      'visaNumber', 'visaIssuedDate', 'visaReceivedDate', 'visaExpiryDate',
+      'kdnBpaNo', 'branchInfo', 'desiredCountry', 'desiredJobCategory', 'skills',
+    ].join(' '))
     .populate('collectedBy', 'name')
-    .populate('returnedBy', 'name');
+    .populate('returnedBy', 'name')
+    .populate('allocatedToDemandId', 'employerCompanyName employerCountry jobCategory');
 
   if (!passport) {
     return res.status(404).json({ message: 'Passport not found' });
@@ -240,7 +249,7 @@ const updatePassportStatus = asyncHandler(async (req, res) => {
 const updatePassport = asyncHandler(async (req, res) => {
   const {
     passportNumber,
-    personalNumber,
+    guardianNumber,
     fullName,
     dateOfBirth,
     issueDate,
@@ -273,7 +282,7 @@ const updatePassport = asyncHandler(async (req, res) => {
 
   const updates = {};
   if (passportNumber) updates.passportNumber = passportNumber;
-  if (personalNumber !== undefined) updates.personalNumber = personalNumber;
+  if (guardianNumber !== undefined) updates.guardianNumber = guardianNumber;
   if (fullName) updates.fullName = fullName;
   if (dateOfBirth) updates.dateOfBirth = dateOfBirth;
   if (issueDate) updates.issueDate = issueDate;
@@ -420,7 +429,7 @@ const scanPassport = asyncHandler(async (req, res) => {
     scannedImageUrl,
     extractedData: {
       passportNumber: extractedData.passportNumber || '',
-      personalNumber: extractedData.personalNumber || '',
+      guardianNumber: extractedData.guardianNumber || '',
       fullName: extractedData.fullName || '',
       surname: extractedData.surname || '',
       givenNames: extractedData.givenNames || '',

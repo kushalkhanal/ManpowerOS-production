@@ -36,8 +36,21 @@ claude-flow.config.json
 
 
 CLAUDE.md
+create-superadmin.bat
 start.bat
 start.sh
 ruvector.db
+DEPLOYMENT.md
 
 
+
+.lintstagedrc.json
+.prettierignore
+.mcp.json
+.mcp/
+
+.claude/
+.claude-flow/
+.gstack/
+.husky/
+.swarm/

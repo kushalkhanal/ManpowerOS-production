@@ -44,8 +44,18 @@ app.get('/api/staff/online', (req, res) => {
 });
 
 mongoose.connect(finalMongoUri)
-  .then(() => {
+  .then(async () => {
     console.log('Connected to MongoDB');
+
+    // Drop the old unique index on demandLetterNumber so blank values don't conflict.
+    try {
+      await mongoose.connection.collection('jobdemands')
+        .dropIndex('agencyId_1_demandLetterNumber_1');
+      console.log('Dropped old unique demandLetterNumber index');
+    } catch (e) {
+      // Index may not exist — safe to ignore
+    }
+
     httpServer.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });

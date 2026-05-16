@@ -103,32 +103,17 @@ const MedicalCard = ({ candidateId, candidateStatus }) => {
                         {RESULT_LABELS[medical.result]}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-700 font-medium">
                       {medical.medicalCenter || 'No center specified'}
                     </p>
-                    <div className="text-xs text-gray-400 space-x-4">
-                      <span>Scheduled: {formatDate(medical.scheduledDate)}</span>
-                      {medical.conductedDate && <span>Conducted: {formatDate(medical.conductedDate)}</span>}
-                    </div>
-                    {medical.reportExpiryDate && (
-                      <div className="text-xs text-gray-400">
-                        Expires: {formatDate(medical.reportExpiryDate)}
-                        {daysUntilExpiry !== null && (
-                          <span className={`ml-2 ${daysUntilExpiry <= 30 ? 'text-red-600 font-medium' : ''}`}>
-                            ({daysUntilExpiry} days)
-                          </span>
-                        )}
-                      </div>
+                    {medical.amount != null && (
+                      <p className="text-sm text-gray-500">Amount: {medical.amount}</p>
                     )}
-                    {medical.unfitReason && (
-                      <p className="text-sm text-red-600 mt-1">
-                        Reason: {medical.unfitReason}
-                      </p>
+                    {medical.conductedDate && (
+                      <p className="text-sm text-gray-500">Check Up Date: {formatDate(medical.conductedDate)}</p>
                     )}
-                    {medical.recheckScheduledDate && (
-                      <p className="text-sm text-amber-600 mt-1">
-                        Recheck: {formatDate(medical.recheckScheduledDate)}
-                      </p>
+                    {medical.examinedBy && (
+                      <p className="text-sm text-gray-500">Examined By: {medical.examinedBy}</p>
                     )}
                   </div>
                   <button

@@ -81,6 +81,50 @@ const candidateSchema = new mongoose.Schema({
   permanentMunicipality: String,
   permanentWardNo: String,
   temporaryAddress: String,
+  temporaryMunicipality: String,
+  temporaryDistrict: String,
+  temporaryProvince: String,
+  maritalStatus: {
+    type: String,
+    enum: ['single', 'married', 'divorced', 'widowed']
+  },
+  religion: String,
+  // ── Bank Info ──────────────────────────────────────────────────────────────
+  bankInfo: {
+    bankName:          String,
+    accountNo:         String,
+    accountHolderName: String,
+    relation:          String,
+  },
+  // ── Training ───────────────────────────────────────────────────────────────
+  training: [{
+    name:      String,
+    institute: String,
+  }],
+  // ── Academic ───────────────────────────────────────────────────────────────
+  academic: [{
+    qualification:       String,
+    institutionName:     String,
+    institutionAddress:  String,
+  }],
+  // ── Nominee ────────────────────────────────────────────────────────────────
+  nomineeInfo: {
+    fatherName:               String,
+    motherName:               String,
+    spouseName:               String,
+    noOfChildren:             { type: Number, default: 0 },
+    spouseAge:                { type: Number, default: 0 },
+    emergencyContactPerson:   String,
+    emergencyContactNumber:   String,
+    emergencyContactAddress:  String,
+    nomineeName:              String,
+    nomineeRelation:          String,
+    nomineeAddress:           String,
+  },
+  // ── Work Detail extras ─────────────────────────────────────────────────────
+  visaIssuedDate: Date,
+  kdnBpaNo:       String,
+  branchInfo:     String,
   education: {
     type: String,
     enum: EDUCATION_LEVELS

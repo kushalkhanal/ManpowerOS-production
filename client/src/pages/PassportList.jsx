@@ -196,6 +196,8 @@ const PassportList = () => {
     page:                Math.max(1, Number(searchParams.get('page')) || 1),
   });
 
+  const addMenuRef = useRef(null);
+
   const [filtersOpen,    setFiltersOpen]    = useState(false);
   const [addMenuOpen,    setAddMenuOpen]    = useState(false);
   const [showAddModal,   setShowAddModal]   = useState(false);
@@ -243,6 +245,18 @@ const PassportList = () => {
       .catch(() => {});
   }, []);
 
+  // Close Add dropdown when clicking outside
+  useEffect(() => {
+    if (!addMenuOpen) return;
+    const handleClickOutside = (e) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target)) {
+        setAddMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [addMenuOpen]);
+
   const patch = (changes) => setQs(q => ({ ...q, ...changes, page: 1 }));
 
   const handleDelete = (id) => setDeleteTargetId(id);
@@ -284,10 +298,9 @@ const PassportList = () => {
             </p>
           )}
         </div>
-        <div className="relative">
+        <div className="relative" ref={addMenuRef}>
           <button
             onClick={() => setAddMenuOpen(o => !o)}
-            onBlur={() => setTimeout(() => setAddMenuOpen(false), 150)}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors"
           >
             <Plus size={14} /> Add <ChevronDown size={12} />

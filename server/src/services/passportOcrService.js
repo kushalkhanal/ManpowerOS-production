@@ -114,11 +114,11 @@ const parseMRZ = (line1, line2) => {
     const dobRaw = line2.substring(13, 19);
     const genderRaw = line2.substring(20, 21);
     const expiryRaw = line2.substring(19, 25);
-    const personalNumberRaw = line2.substring(28, 42).replace(/</g, '').trim();
+    const guardianNumberRaw = line2.substring(28, 42).replace(/</g, '').trim();
 
     return {
       passportNumber,
-      personalNumber: personalNumberRaw,
+      guardianNumber: guardianNumberRaw,
       surname,
       givenNames,
       fullName: `${givenNames} ${surname}`.trim().toUpperCase(),
@@ -154,7 +154,7 @@ const mrzDateToJS = (yymmdd, isExpiry = false) => {
 const extractVisualFields = (text) => {
   const patterns = {
     passportNumber: /(?:Passport No\.?|Passport No|PN|No\.)\s*:?\s*([A-Z]{1,2}\d{6,9})/i,
-    personalNumber: /(?:Personal No\.?|Personal Number)\s*:?\s*([A-Z0-9\-]+)/i,
+    guardianNumber: /(?:Personal No\.?|Personal Number)\s*:?\s*([A-Z0-9\-]+)/i,
     surname: /(?:Surname|Family Name|Last Name)\s*:?\s*([A-Z\s]+)/i,
     givenNames: /(?:Given Names?|First Name|Given Name)\s*:?\s*([A-Z\s]+)/i,
     dateOfBirth: /(?:Date of Birth|DOB|Birth Date)\s*:?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
@@ -205,7 +205,7 @@ const parseVisualDate = (dateStr) => {
 const mergeData = (mrz, visual) => {
   const result = {
     passportNumber: mrz?.passportNumber || visual?.passportNumber || '',
-    personalNumber: mrz?.personalNumber || visual?.personalNumber || '',
+    guardianNumber: mrz?.guardianNumber || visual?.guardianNumber || '',
     surname: mrz?.surname || visual?.surname || '',
     givenNames: mrz?.givenNames || visual?.givenNames || '',
     fullName: mrz?.fullName || visual?.givenNames && visual?.surname 

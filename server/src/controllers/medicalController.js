@@ -52,7 +52,7 @@ const getMedicalById = asyncHandler(async (req, res) => {
 });
 
 const createMedical = asyncHandler(async (req, res) => {
-  const { candidateId, medicalType, medicalCenter, medicalCenterLocation, scheduledDate, notes, reportNumber, conductedDate, reportExpiryDate, result } = req.body;
+  const { candidateId, medicalType, medicalCenter, medicalCenterLocation, scheduledDate, notes, reportNumber, conductedDate, reportExpiryDate, result, amount, examinedBy } = req.body;
 
   if (!candidateId) {
     return res.status(400).json({ message: 'Candidate ID is required' });
@@ -78,7 +78,9 @@ const createMedical = asyncHandler(async (req, res) => {
     reportNumber,
     conductedDate,
     reportExpiryDate,
-    result
+    result,
+    amount,
+    examinedBy
   });
 
   if (req.file) {
@@ -108,7 +110,7 @@ const createMedical = asyncHandler(async (req, res) => {
 });
 
 const updateMedical = asyncHandler(async (req, res) => {
-  const { result, conductedDate, reportNumber, reportExpiryDate, reportFileUrl, notes, unfitReason, recheckScheduledDate, medicalCenter } = req.body;
+  const { result, conductedDate, reportNumber, reportExpiryDate, reportFileUrl, notes, unfitReason, recheckScheduledDate, medicalCenter, amount, examinedBy } = req.body;
 
   const medical = await Medical.findOne(scopeFilter(req, { _id: req.params.id }));
   if (!medical) {
@@ -125,6 +127,8 @@ const updateMedical = asyncHandler(async (req, res) => {
   if (unfitReason !== undefined) updates.unfitReason = unfitReason;
   if (recheckScheduledDate !== undefined) updates.recheckScheduledDate = recheckScheduledDate;
   if (medicalCenter !== undefined) updates.medicalCenter = medicalCenter;
+  if (amount !== undefined) updates.amount = amount;
+  if (examinedBy !== undefined) updates.examinedBy = examinedBy;
 
   if (req.file) {
     updates.reportFileUrl = req.file.path;

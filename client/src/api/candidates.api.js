@@ -37,7 +37,8 @@ export const candidatesApi = {
   saveStageNote: (id, columnId, note) => api.patch(`/candidates/${id}/stage-note`, { columnId, note }),
   unassignFromDemand: (id) => api.patch(`/candidates/${id}/unassign-from-demand`),
   bulkUpdateStatus: (candidateIds, status) => api.patch('/candidates/bulk-status', { candidateIds, status }),
-  printBundle: (id) => api.get(`/candidates/${id}/print-bundle`)
+  printBundle: (id) => api.get(`/candidates/${id}/print-bundle`),
+  updateProfileSection: (id, data) => api.patch(`/candidates/${id}/profile-section`, data)
 };
 
 export default candidatesApi;

@@ -1,24 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useMedical } from '../hooks/useMedical';
-import { RESULT_COLORS, RESULT_LABELS } from '../utils/medicalConstants';
 import { isValidFileSize, isValidFileType } from '../utils/validation';
 
 const MedicalModal = ({ isOpen, onClose, medical, candidateId, onSuccess }) => {
   const { updateMedical, createMedical, loading } = useMedical();
   const [formData, setFormData] = useState({
-    result: 'pending',
+    medicalCenter: '',
+    amount: '',
     conductedDate: '',
-    reportNumber: '',
-    reportExpiryDate: '',
-    unfitReason: '',
-    recheckScheduledDate: '',
-    notes: '',
-    medicalCenter: ''
+    fit: 'yes',
+    examinedBy: '',
   });
   const [reportFile, setReportFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
   const [errors, setErrors] = useState({});
   const allowedFileTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf', 'image/webp'];
   const maxFileSize = 10 * 1024 * 1024;
+
   const resolveFileUrl = (url) => {
     if (!url) return null;
     if (url.startsWith('http')) return url;
@@ -39,34 +37,34 @@ const MedicalModal = ({ isOpen, onClose, medical, candidateId, onSuccess }) => {
     if (err?.message?.includes('Network Error')) {
       return 'Cannot reach server. Please check your internet/server and try again.';
     }
-    return 'Unable to save medical record. Please check the form fields and file requirements.';
+    return 'Unable to save medical record. Please check the form fields and try again.';
   };
 
   useEffect(() => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
     if (isOpen && medical) {
       setFormData({
-        result: medical.result || 'pending',
+        medicalCenter: medical.medicalCenter || '',
+        amount: medical.amount != null ? String(medical.amount) : '',
         conductedDate: medical.conductedDate ? medical.conductedDate.split('T')[0] : '',
-        reportNumber: medical.reportNumber || '',
-        reportExpiryDate: medical.reportExpiryDate ? medical.reportExpiryDate.split('T')[0] : '',
-        unfitReason: medical.unfitReason || '',
-        recheckScheduledDate: medical.recheckScheduledDate ? medical.recheckScheduledDate.split('T')[0] : '',
-        notes: medical.notes || '',
-        medicalCenter: medical.medicalCenter || ''
+        fit: medical.result === 'unfit' ? 'no' : medical.result === 'fit' ? 'yes' : 'yes',
+        examinedBy: medical.examinedBy || '',
       });
     } else if (isOpen) {
       setFormData({
-        result: 'pending',
+        medicalCenter: '',
+        amount: '',
         conductedDate: '',
-        reportNumber: '',
-        reportExpiryDate: '',
-        unfitReason: '',
-        recheckScheduledDate: '',
-        notes: '',
-        medicalCenter: ''
+        fit: 'yes',
+        examinedBy: '',
       });
     }
     setReportFile(null);
+    setErrors({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, medical]);
 
   const handleChange = (e) => {
@@ -83,22 +81,29 @@ const MedicalModal = ({ isOpen, onClose, medical, candidateId, onSuccess }) => {
       }
       setReportFile(selectedFile);
       setErrors(prev => ({ ...prev, reportFile: '' }));
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      if (selectedFile.type.startsWith('image/')) {
+        setPreviewUrl(URL.createObjectURL(selectedFile));
+      } else {
+        setPreviewUrl(null);
+      }
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
+      if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
     }
-    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const nextErrors = {};
 
-    if (formData.result !== 'pending' && !formData.conductedDate) {
-      nextErrors.conductedDate = 'Please fill "Conducted Date" in Medical section';
+    if (!formData.medicalCenter.trim()) {
+      nextErrors.medicalCenter = 'Institute Name is required';
     }
-    if (formData.result === 'unfit' && !formData.unfitReason.trim()) {
-      nextErrors.unfitReason = 'Please fill "Unfit Reason" in Medical section';
+    if (!formData.conductedDate) {
+      nextErrors.conductedDate = 'Check Up Date is required';
     }
+
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
       return;
@@ -107,9 +112,13 @@ const MedicalModal = ({ isOpen, onClose, medical, candidateId, onSuccess }) => {
 
     try {
       const dataToSend = {
-        ...formData,
+        medicalCenter: formData.medicalCenter,
+        amount: formData.amount !== '' ? Number(formData.amount) : undefined,
+        conductedDate: formData.conductedDate,
+        result: formData.fit === 'yes' ? 'fit' : 'unfit',
+        examinedBy: formData.examinedBy,
         candidateId,
-        reportFile
+        reportFile,
       };
 
       if (medical?._id) {
@@ -137,7 +146,7 @@ const MedicalModal = ({ isOpen, onClose, medical, candidateId, onSuccess }) => {
             <div className="sm:flex sm:items-start">
               <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
                 <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                  {medical ? 'Update Medical Result' : 'Schedule Medical'}
+                  {medical ? 'Update Medical Details' : 'Add Medical Details'}
                 </h3>
 
                 {errors.submit && (
@@ -145,134 +154,137 @@ const MedicalModal = ({ isOpen, onClose, medical, candidateId, onSuccess }) => {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Medical Check-Up Information */}
+                  <div className="border-b border-gray-100 pb-1 mb-2">
+                    <h4 className="text-sm font-semibold text-primary-600">Medical Check-Up Information</h4>
+                  </div>
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Medical Center</label>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Institute Name <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
                       name="medicalCenter"
-                      value={formData.medicalCenter || ''}
+                      value={formData.medicalCenter}
                       onChange={handleChange}
-                      placeholder="Enter medical center name"
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500"
+                      placeholder="Enter medical institute name"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                     />
                     {errors.medicalCenter && <p className="text-red-500 text-xs mt-1">{errors.medicalCenter}</p>}
                   </div>
 
                   <div>
+                    <label className="block text-sm font-medium text-gray-700">Amount</label>
+                    <input
+                      type="number"
+                      name="amount"
+                      value={formData.amount}
+                      onChange={handleChange}
+                      placeholder="Enter amount"
+                      min="0"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+
+                  <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Conducted Date {formData.result !== 'pending' && <span className="text-red-500">*</span>}
+                      Check Up Date <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="date"
                       name="conductedDate"
                       value={formData.conductedDate}
                       onChange={handleChange}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                     />
                     {errors.conductedDate && <p className="text-red-500 text-xs mt-1">{errors.conductedDate}</p>}
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Result <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-gray-700">Fit</label>
                     <select
-                      name="result"
-                      value={formData.result}
+                      name="fit"
+                      value={formData.fit}
                       onChange={handleChange}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                     >
-                      {Object.entries(RESULT_LABELS).map(([val, label]) => (
-                        <option key={val} value={val}>{label}</option>
-                      ))}
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
                     </select>
                   </div>
 
-                  {formData.result === 'unfit' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Unfit Reason *</label>
-                      <textarea
-                        name="unfitReason"
-                        value={formData.unfitReason}
-                        onChange={handleChange}
-                        rows={2}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500"
-                      />
-                      {errors.unfitReason && <p className="text-red-500 text-xs mt-1">{errors.unfitReason}</p>}
-                    </div>
-                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Examined By</label>
+                    <input
+                      type="text"
+                      name="examinedBy"
+                      value={formData.examinedBy}
+                      onChange={handleChange}
+                      placeholder="Enter examiner's name"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
 
-                  {formData.result === 'unfit' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Recheck Scheduled Date</label>
-                      <input
-                        type="date"
-                        name="recheckScheduledDate"
-                        value={formData.recheckScheduledDate}
-                        onChange={handleChange}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500"
-                      />
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Report Number</label>
-                      <input
-                        type="text"
-                        name="reportNumber"
-                        value={formData.reportNumber}
-                        onChange={handleChange}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Expiry Date</label>
-                      <input
-                        type="date"
-                        name="reportExpiryDate"
-                        value={formData.reportExpiryDate}
-                        onChange={handleChange}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500"
-                      />
-                    </div>
+                  {/* Documents */}
+                  <div className="border-b border-gray-100 pb-1 mb-2 mt-4">
+                    <h4 className="text-sm font-semibold text-primary-600">Documents</h4>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Upload Medical Report</label>
-                    {medical?.reportFileUrl && (
-                      <a
-                        href={resolveFileUrl(medical.reportFileUrl)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-1 block text-xs text-primary-600 hover:text-primary-800 underline"
-                      >
-                        Current file: View uploaded medical report
-                      </a>
+                    {medical?.reportFileUrl && !reportFile && (
+                      <div className="flex items-center gap-2 mb-2 p-2 bg-green-50 border border-green-200 rounded-md">
+                        <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-xs text-green-700 font-medium flex-1 truncate">
+                          {medical.reportFileUrl.split('/').pop()}
+                        </span>
+                        <a
+                          href={resolveFileUrl(medical.reportFileUrl)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-green-700 underline hover:text-green-900 flex-shrink-0"
+                        >
+                          View
+                        </a>
+                      </div>
                     )}
                     <input
                       type="file"
                       name="reportFile"
                       accept=".pdf,.jpg,.jpeg,.png,.webp"
                       onChange={handleChange}
-                      className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
                     />
                     {errors.reportFile && <p className="text-red-500 text-xs mt-1">{errors.reportFile}</p>}
-                    {reportFile && <p className="text-xs text-gray-500 mt-1">Selected: {reportFile.name}</p>}
+                    {reportFile && (
+                      <div className="mt-2">
+                        {previewUrl ? (
+                          <div className="relative inline-block">
+                            <img
+                              src={previewUrl}
+                              alt="Preview"
+                              className="h-24 w-24 object-cover rounded-md border border-gray-200 shadow-sm"
+                            />
+                            <p className="text-xs text-gray-500 mt-1 truncate max-w-[6rem]">{reportFile.name}</p>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-md border border-gray-200 w-fit">
+                            <svg className="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                            </svg>
+                            <span className="text-xs text-gray-600 max-w-[10rem] truncate">{reportFile.name}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <p className="text-xs text-gray-400 mt-1">Allowed: PDF, JPG, PNG, WEBP (max 10MB)</p>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Notes</label>
-                    <textarea
-                      name="notes"
-                      value={formData.notes}
-                      onChange={handleChange}
-                      rows={2}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500"
-                    />
-                  </div>
                 </form>
+
                 <p className="text-xs text-gray-500 mt-3">
-                  <span className="text-red-500">*</span> Required fields only. Other fields are optional.
+                  <span className="text-red-500">*</span> Required fields
                 </p>
               </div>
             </div>

@@ -789,23 +789,61 @@ const CandidateWorkspacePage = () => {
       <div className="px-4 sm:px-6 lg:px-8 pb-16 pt-4">
         <div className="max-w-3xl mx-auto">
 
-          {/* Next action / blocked banner */}
-          {(overallProgress.blockedBy || overallProgress.nextAction) && (
-            <div className={`mb-4 px-4 py-3 rounded-xl flex items-start gap-2.5 ${
-              overallProgress.blockedBy
-                ? 'bg-red-50 border border-red-200'
-                : 'bg-blue-50 border border-blue-200'
-            }`}>
-              <AlertCircle size={15} className={`mt-0.5 flex-shrink-0 ${
-                overallProgress.blockedBy ? 'text-red-500' : 'text-blue-500'
-              }`} />
-              <div>
-                <p className="text-sm font-semibold text-gray-800">
-                  {overallProgress.blockedBy ? 'Blocked' : 'Next action'}
-                </p>
-                <p className="text-xs text-gray-600 mt-0.5">
-                  {overallProgress.blockedBy || overallProgress.nextAction}
-                </p>
+          {/* Next action / blocked banner — with Document Vault tab on the right */}
+          <div className={`mb-3 px-4 py-3 rounded-xl flex items-center justify-between gap-3 ${
+            overallProgress.blockedBy
+              ? 'bg-red-50 border border-red-200'
+              : 'bg-blue-50 border border-blue-200'
+          }`}>
+            {(overallProgress.blockedBy || overallProgress.nextAction) ? (
+              <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                <AlertCircle size={15} className={`mt-0.5 flex-shrink-0 ${
+                  overallProgress.blockedBy ? 'text-red-500' : 'text-blue-500'
+                }`} />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-800">
+                    {overallProgress.blockedBy ? 'Blocked' : 'Next action'}
+                  </p>
+                  <p className="text-xs text-gray-600 mt-0.5 truncate">
+                    {overallProgress.blockedBy || overallProgress.nextAction}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1" />
+            )}
+
+            {/* Document Vault tab */}
+            <button
+              onClick={() => setExpandedPanels(p => ({ ...p, vault: !p.vault }))}
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                expandedPanels.vault
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                  : 'bg-white text-blue-600 border-blue-200 hover:border-blue-400 hover:bg-blue-50'
+              }`}
+            >
+              <FolderOpen size={13} />
+              Document Vault
+            </button>
+          </div>
+
+          {/* Document Vault — inline panel under the banner */}
+          {expandedPanels.vault && (
+            <div className="mb-3 bg-white rounded-xl border border-gray-100 overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FolderOpen size={14} className="text-blue-500" />
+                  <span className="text-sm font-semibold text-gray-700">Document Vault</span>
+                </div>
+                <button
+                  onClick={() => setExpandedPanels(p => ({ ...p, vault: false }))}
+                  className="text-gray-300 hover:text-gray-500 transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="px-4 pb-4">
+                <DocumentVault candidateId={id} kanbanData={kanbanData} onUploaded={loadKanban} />
               </div>
             </div>
           )}
@@ -908,14 +946,6 @@ const CandidateWorkspacePage = () => {
           </CollapsibleSection>
 
           <CollapsibleSection
-            title="Document Vault"
-            expanded={expandedPanels.vault}
-            onToggle={() => setExpandedPanels(p => ({ ...p, vault: !p.vault }))}
-          >
-            <DocumentVault candidateId={id} kanbanData={kanbanData} onUploaded={loadKanban} />
-          </CollapsibleSection>
-
-          <CollapsibleSection
             title="Passport details"
             expanded={expandedPanels.passport}
             onToggle={() => setExpandedPanels(p => ({ ...p, passport: !p.passport }))}
@@ -927,7 +957,31 @@ const CandidateWorkspacePage = () => {
                 <InfoRow label="DOB (BS)"        value={passport.dateOfBirthBS} />
                 <InfoRow label="Expiry (BS)"     value={passport.expiryDateBS} />
                 <InfoRow label="Issued district" value={passport.issuedDistrict} />
-                <InfoRow label="Collected"       value={passport.collectedAtBS || fmtDate(passport.collectedAt)} />
+
+                {/* Collected at + custody status on the same row */}
+                <div className="flex items-baseline justify-between py-1.5 border-b border-gray-50">
+                  <span className="text-[11px] uppercase tracking-wide text-gray-400 flex-shrink-0">Collected</span>
+                  <div className="flex items-center gap-2 ml-4">
+                    <span className="text-sm text-gray-800 font-medium">
+                      {passport.collectedAtBS || fmtDate(passport.collectedAt) || '—'}
+                    </span>
+                    {passport.custodyStatus && (() => {
+                      const STATUS_MAP = {
+                        with_agency:            { label: 'With Agency',         cls: 'bg-blue-100 text-blue-700' },
+                        returned_to_candidate:  { label: 'Returned',            cls: 'bg-gray-100 text-gray-600' },
+                        submitted_embassy:      { label: 'At Embassy',          cls: 'bg-purple-100 text-purple-700' },
+                        lost:                   { label: 'Lost',                cls: 'bg-red-100 text-red-600' },
+                      };
+                      const s = STATUS_MAP[passport.custodyStatus];
+                      return s ? (
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${s.cls}`}>
+                          {s.label}
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
+                </div>
+
                 {passport.scannedImageUrl && (
                   <div className="mt-2">
                     <FileLink url={passport.scannedImageUrl} label="Passport scan" />

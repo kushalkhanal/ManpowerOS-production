@@ -37,6 +37,13 @@ export function useJobDemands() {
     }, 'Failed to create demand'),
   [execute]);
 
+  const deleteDemand = useCallback((id) =>
+    execute(async () => {
+      await jobDemandApi.delete(id);
+      setDemands(prev => prev.filter(d => d._id !== id));
+    }, 'Failed to delete demand'),
+  [execute]);
+
   const updateDemand = useCallback((id, data) =>
     execute(async () => {
       const response = await jobDemandApi.update(id, data);
@@ -92,6 +99,7 @@ export function useJobDemands() {
     getDemands,
     getDemandById,
     createDemand,
+    deleteDemand,
     updateDemand,
     assignCandidate,
     removeCandidate,

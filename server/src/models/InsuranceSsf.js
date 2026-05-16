@@ -14,7 +14,9 @@ const insuranceSsfSchema = new mongoose.Schema({
     required: true
   },
   insurancePolicyNumber: String,
+  insurancePolicyName: String,
   insuranceCompany: String,
+  insuranceBranch: String,
   insurancePremiumNPR: {
     type: Number,
     default: 1674

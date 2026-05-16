@@ -74,10 +74,13 @@ const InsuranceSsfCard = ({ candidateId, candidateStatus }) => {
   useEffect(() => {
     if (record) {
       setEditData({
-        insurancePolicyNumber: record.insurancePolicyNumber || '',
         insuranceCompany: record.insuranceCompany || '',
+        insuranceBranch: record.insuranceBranch || '',
+        insurancePolicyName: record.insurancePolicyName || '',
+        insurancePolicyNumber: record.insurancePolicyNumber || '',
         insurancePremiumNPR: record.insurancePremiumNPR || INSURANCE_DEFAULT_PREMIUM,
         insurancePaidDate: record.insurancePaidDate ? record.insurancePaidDate.split('T')[0] : '',
+        insuranceExpiryDate: record.insuranceExpiryDate ? record.insuranceExpiryDate.split('T')[0] : '',
         insuranceCoverageYears: record.insuranceCoverageYears || 2,
         ssfRegistrationNumber: record.ssfRegistrationNumber || '',
         ssfContributionNPR: record.ssfContributionNPR || SSF_DEFAULT_CONTRIBUTION,

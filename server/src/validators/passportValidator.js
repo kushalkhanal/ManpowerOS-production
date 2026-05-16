@@ -8,7 +8,7 @@ export const createPassportSchema = z.object({
 
   passportNumber: nepaliPassportNumber,
 
-  personalNumber: z.string().max(30).optional(),
+  guardianNumber: z.string().max(30).optional(),
 
   fullName: z.string()
     .min(2, 'Full name must be at least 2 characters')

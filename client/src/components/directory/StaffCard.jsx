@@ -25,7 +25,7 @@ const getInitials = (name) => {
   return name.substring(0, 2).toUpperCase();
 };
 
-const StaffCard = ({ staff, onEdit, onResetPassword, onToggle }) => {
+const StaffCard = ({ staff, onEdit, onResetPassword, onToggle, onDelete }) => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
 
@@ -110,6 +110,12 @@ const StaffCard = ({ staff, onEdit, onResetPassword, onToggle }) => {
             className={`flex-1 px-2 py-1.5 text-xs rounded ${staff.isActive !== false ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100' : 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100'}`}
           >
             {staff.isActive !== false ? 'Deactivate' : 'Activate'}
+          </button>
+          <button
+            onClick={() => onDelete?.(staff._id)}
+            className="px-2 py-1.5 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Delete
           </button>
         </div>
       )}

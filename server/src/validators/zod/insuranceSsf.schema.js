@@ -8,10 +8,20 @@ const insuranceSsfBaseSchema = z.object({
     .max(100, "Policy number too long")
     .optional()
     .nullable(),
+  insurancePolicyName: z.string()
+    .trim()
+    .max(200, "Policy name too long")
+    .optional()
+    .nullable(),
   insuranceCompany: z.string()
     .trim()
     .min(2, "Insurance company name must be at least 2 characters")
     .max(200, "Insurance company name too long")
+    .optional()
+    .nullable(),
+  insuranceBranch: z.string()
+    .trim()
+    .max(200, "Branch name too long")
     .optional()
     .nullable(),
   insurancePremiumNPR: z.number()
@@ -34,19 +44,14 @@ const insuranceSsfBaseSchema = z.object({
     .optional()
     .nullable(),
   insuranceCoverageYears: z.number()
-    .int("Coverage years must be a whole number")
     .positive("Coverage years must be positive")
-    .min(1, "Coverage must be at least 1 year")
-    .max(5, "Coverage cannot exceed 5 years")
+    .min(0.5, "Coverage must be at least 0.5 years")
+    .max(10, "Coverage cannot exceed 10 years")
     .optional()
     .default(2),
   insuranceExpiryDate: z.string()
     .or(z.date())
     .transform((val) => val ? new Date(val) : undefined)
-    .refine((date) => {
-      if (!date) return true;
-      return date > new Date();
-    }, { message: "Insurance expiry date must be in the future" })
     .optional()
     .nullable(),
   ssfRegistrationNumber: z.string()
@@ -114,19 +119,6 @@ export const insuranceSsfSchema = insuranceSsfBaseSchema.refine((data) => {
   return true;
 }, {
   message: "Insurance expiry date must be after paid date",
-  path: ["insuranceExpiryDate"]
-}).refine((data) => {
-  // If coverage years specified, validate expiry date matches
-  if (data.insurancePaidDate && data.insuranceExpiryDate && data.insuranceCoverageYears) {
-    const expectedExpiry = new Date(data.insurancePaidDate);
-    expectedExpiry.setFullYear(expectedExpiry.getFullYear() + data.insuranceCoverageYears);
-    const daysDiff = Math.abs((data.insuranceExpiryDate - expectedExpiry) / (24 * 60 * 60 * 1000));
-    // Allow 30 days variance
-    return daysDiff <= 30;
-  }
-  return true;
-}, {
-  message: "Insurance expiry date should match the coverage period",
   path: ["insuranceExpiryDate"]
 }).refine((data) => {
   // If welfare fund is paid, amount and date should be provided

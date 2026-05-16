@@ -17,7 +17,7 @@ const passportSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  personalNumber: String,
+  guardianNumber: String,
   fullName: {
     type: String,
     required: true,

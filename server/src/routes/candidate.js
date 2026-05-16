@@ -1,32 +1,14 @@
 import express from 'express';
-import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import { v4 as uuidv4 } from 'uuid';
 import candidateController, * as candidateNamed from '../controllers/candidateController.js';
 import { authenticate, authorize } from '../middleware/authenticate.js';
 import { filterAgentCandidates, checkEditAccess, checkDeleteAccess } from '../middleware/rbac.js';
 import checkPlanLimits from '../middleware/checkPlanLimits.js';
 import { validateZod } from '../validators/validateZod.js';
 import { candidateSchema, candidateUpdateSchema } from '../validators/zod/candidate.schema.js';
+import { createDocumentUpload } from '../middleware/upload.js';
 
 const router = express.Router();
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(process.cwd(), 'uploads', 'documents');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${uuidv4()}${ext}`);
-  }
-});
-
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = createDocumentUpload('documents');
 
 router.use(authenticate);
 
@@ -45,6 +27,7 @@ router.patch('/bulk-status', checkEditAccess, candidateController.bulkUpdateStat
 router.get('/:id/print-bundle', filterAgentCandidates, candidateController.getPrintBundle);
 router.post('/', validateZod(candidateSchema), checkPlanLimits, candidateController.createCandidate);
 router.get('/:id', filterAgentCandidates, candidateController.getCandidateById);
+router.patch('/:id/profile-section', filterAgentCandidates, checkEditAccess, candidateController.updateProfileSection);
 router.patch('/:id', upload.fields([
   { name: 'file', maxCount: 1 },
   { name: 'visaFile', maxCount: 1 },

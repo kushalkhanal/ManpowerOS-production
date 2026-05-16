@@ -33,7 +33,7 @@ const passportBaseSchema = z.object({
     .min(5, "Passport number must be at least 5 characters")
     .max(20, "Passport number too long")
     .regex(/^[A-Z0-9]+$/, "Passport number must contain only uppercase letters and numbers"),
-  personalNumber: optionalText(30),
+  guardianNumber: optionalText(30),
   fullName: z.union([z.string().trim().max(200), z.literal(''), z.null(), z.undefined()]),
   firstName: z.string().trim().max(50).optional().nullable(),
   lastName: z.string().trim().max(50).optional().nullable(),

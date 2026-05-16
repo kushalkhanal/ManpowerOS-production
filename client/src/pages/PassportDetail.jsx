@@ -3,6 +3,7 @@ import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { usePassports } from '../hooks/usePassports';
 import StatusChangeModal from '../components/StatusChangeModal';
 import EditPassportModal from '../components/EditPassportModal';
+import EditCandidateSectionModal from '../components/EditCandidateSectionModal';
 import SharedDocumentsPanel from '../components/SharedDocumentsPanel';
 import { ArrowLeft, Pencil, Settings2 } from 'lucide-react';
 
@@ -56,10 +57,22 @@ function InfoRow({ label, value, mono = false }) {
   );
 }
 
-function PanelCard({ title, children }) {
+function PanelCard({ title, children, onEdit }) {
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-      {title && <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">{title}</h2>}
+      {title && (
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{title}</h2>
+          {onEdit && (
+            <button
+              onClick={onEdit}
+              className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
+            >
+              <Pencil size={12} />
+            </button>
+          )}
+        </div>
+      )}
       {children}
     </div>
   );
@@ -74,6 +87,7 @@ const PassportDetail = () => {
   const [logs, setLogs]             = useState([]);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showEditModal,   setShowEditModal]   = useState(false);
+  const [editSection,     setEditSection]     = useState(null);
   const [searchParams, setSearchParams]       = useSearchParams();
 
   const loadPassport = async () => {
@@ -196,6 +210,181 @@ const PassportDetail = () => {
             </dl>
           </PanelCard>
 
+          {/* ── Permanent & Temporary Address ── */}
+          <PanelCard title="Address Information" onEdit={() => setEditSection('address')}>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-0">
+              {/* Permanent */}
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2 pb-1 border-b border-gray-100">
+                  Permanent Address
+                </p>
+                <dl className="space-y-3">
+                  <InfoRow label="Province"     value={passport.candidateId?.permanentProvince    || '—'} />
+                  <InfoRow label="District"     value={passport.candidateId?.permanentDistrict    || '—'} />
+                  <InfoRow label="Municipality" value={passport.candidateId?.permanentMunicipality || '—'} />
+                  <InfoRow label="Ward No."     value={passport.candidateId?.permanentWardNo      || '—'} />
+                </dl>
+              </div>
+              {/* Temporary */}
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2 pb-1 border-b border-gray-100">
+                  Temporary Address
+                </p>
+                <dl className="space-y-3">
+                  <InfoRow label="Province"     value={passport.candidateId?.temporaryProvince    || '—'} />
+                  <InfoRow label="District"     value={passport.candidateId?.temporaryDistrict    || '—'} />
+                  <InfoRow label="Municipality" value={passport.candidateId?.temporaryMunicipality || '—'} />
+                  <InfoRow label="Address"      value={passport.candidateId?.temporaryAddress     || '—'} />
+                </dl>
+              </div>
+            </div>
+          </PanelCard>
+
+          {/* ── Bank Info ── */}
+          <PanelCard title="Bank Account Info" onEdit={() => setEditSection('bank')}>
+            {(() => {
+              const b = passport.candidateId?.bankInfo;
+              return (
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
+                  <InfoRow label="Bank Name"          value={b?.bankName          || '—'} />
+                  <InfoRow label="Account No."        value={b?.accountNo         || '—'} />
+                  <InfoRow label="Account Holder"     value={b?.accountHolderName || '—'} />
+                  <InfoRow label="Relation"           value={b?.relation          || '—'} />
+                </dl>
+              );
+            })()}
+          </PanelCard>
+
+          {/* ── Training Information ── */}
+          <PanelCard title="Training Information" onEdit={() => setEditSection('training')}>
+            {(() => {
+              const list = passport.candidateId?.training;
+              if (!list?.length) return (
+                <p className="text-xs text-gray-400">No Records Found!</p>
+              );
+              return (
+                <div className="space-y-3">
+                  {list.map((t, i) => (
+                    <div key={i} className="border border-gray-100 rounded-lg px-4 py-3 grid grid-cols-2 gap-x-6 gap-y-2 bg-gray-50/40">
+                      <InfoRow label="Training" value={t.name      || '—'} />
+                      <InfoRow label="Institute" value={t.institute || '—'} />
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </PanelCard>
+
+          {/* ── Academic Information ── */}
+          <PanelCard title="Academic Information" onEdit={() => setEditSection('academic')}>
+            {(() => {
+              const list = passport.candidateId?.academic;
+              if (!list?.length) return (
+                <p className="text-xs text-gray-400">No Records Found!</p>
+              );
+              return (
+                <div className="space-y-3">
+                  {list.map((a, i) => (
+                    <div key={i} className="border border-gray-100 rounded-lg px-4 py-3 grid grid-cols-2 gap-x-6 gap-y-2 bg-gray-50/40">
+                      <InfoRow label="Qualification"    value={a.qualification      || '—'} />
+                      <InfoRow label="Institution"      value={a.institutionName    || '—'} />
+                      <InfoRow label="Address" value={a.institutionAddress || '—'} />
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </PanelCard>
+
+          {/* ── Nominee Information ── */}
+          <PanelCard title="Nominee Information" onEdit={() => setEditSection('nominee')}>
+            {(() => {
+              const n = passport.candidateId?.nomineeInfo;
+              return (
+                <div className="space-y-4">
+                  {/* Family */}
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2 pb-1 border-b border-gray-100">
+                      Basic Family Info
+                    </p>
+                    <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
+                      <InfoRow label="Father Name" value={n?.fatherName  || '—'} />
+                      <InfoRow label="Mother Name" value={n?.motherName  || '—'} />
+                      <InfoRow label="Spouse Name" value={n?.spouseName  || '—'} />
+                      <InfoRow label="No. of Children" value={n?.noOfChildren ?? '—'} />
+                      <InfoRow label="Spouse Age"  value={n?.spouseAge   ?? '—'} />
+                    </dl>
+                  </div>
+                  {/* Emergency Contact */}
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2 pb-1 border-b border-gray-100">
+                      Emergency Contact
+                    </p>
+                    <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
+                      <InfoRow label="Contact Person"  value={n?.emergencyContactPerson  || '—'} />
+                      <InfoRow label="Contact Number"  value={n?.emergencyContactNumber  || '—'} />
+                      <InfoRow label="Contact Address" value={n?.emergencyContactAddress || '—'} />
+                    </dl>
+                  </div>
+                  {/* Nominee */}
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2 pb-1 border-b border-gray-100">
+                      Nominee
+                    </p>
+                    <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
+                      <InfoRow label="Name"     value={n?.nomineeName     || '—'} />
+                      <InfoRow label="Relation" value={n?.nomineeRelation || '—'} />
+                      <InfoRow label="Address"  value={n?.nomineeAddress  || '—'} />
+                    </dl>
+                  </div>
+                </div>
+              );
+            })()}
+          </PanelCard>
+
+          {/* ── Work Detail Information ── */}
+          <PanelCard title="Work Detail Information" onEdit={() => setEditSection('workDetail')}>
+            {(() => {
+              const c    = passport.candidateId;
+              const dem  = passport.allocatedToDemandId;
+              return (
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2 pb-1 border-b border-gray-100">
+                      Worker Info
+                    </p>
+                    <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
+                      <InfoRow label="Name"             value={passport.fullName           || '—'} />
+                      <InfoRow label="Passport No."     value={passport.passportNumber     || '—'} mono />
+                      <InfoRow label="Visa No."         value={c?.visaNumber               || '—'} mono />
+                      <InfoRow label="Visa Issued Date" value={fmtDate(c?.visaIssuedDate || c?.visaReceivedDate)} />
+                      <InfoRow label="Visa Expiry Date" value={fmtDate(c?.visaExpiryDate)} />
+                    </dl>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2 pb-1 border-b border-gray-100">
+                      Company Info
+                    </p>
+                    <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
+                      <InfoRow label="Country"      value={dem?.employerCountry      || c?.desiredCountry    || '—'} />
+                      <InfoRow label="Company"      value={dem?.employerCompanyName  || '—'} />
+                      <InfoRow label="Skill"        value={dem?.jobCategory          || c?.desiredJobCategory || '—'} />
+                      <InfoRow label="KDN / BPA No." value={c?.kdnBpaNo             || '—'} mono />
+                    </dl>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2 pb-1 border-b border-gray-100">
+                      Branch Info
+                    </p>
+                    <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
+                      <InfoRow label="Branch" value={c?.branchInfo || '—'} />
+                    </dl>
+                  </div>
+                </div>
+              );
+            })()}
+          </PanelCard>
+
           <PanelCard title="Custody & Assignment">
             <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
               <InfoRow label="Status"        value={CUSTODY_LABELS[passport.custodyStatus] || passport.custodyStatus} />
@@ -291,6 +480,16 @@ const PassportDetail = () => {
           onClose={() => setShowEditModal(false)}
           onSuccess={loadPassport}
           passport={passport}
+        />
+      )}
+
+      {passport?.candidateId && (
+        <EditCandidateSectionModal
+          isOpen={!!editSection}
+          section={editSection}
+          candidate={passport.candidateId}
+          onClose={() => setEditSection(null)}
+          onSuccess={loadPassport}
         />
       )}
     </div>

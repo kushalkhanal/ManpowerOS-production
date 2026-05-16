@@ -113,7 +113,7 @@ jobDemandSchema.index({ agencyId: 1, employerCountry: 1 });
 jobDemandSchema.index({ agencyId: 1, jobCategory: 1 });
 jobDemandSchema.index({ agencyId: 1, demandLetterExpiryDate: 1 });
 jobDemandSchema.index({ agencyId: 1, purbaSwukritiExpiryDate: 1 }); // For swukriti alert queries
-jobDemandSchema.index({ agencyId: 1, demandLetterNumber: 1 }, { unique: true, sparse: true });
+jobDemandSchema.index({ agencyId: 1, demandLetterNumber: 1 });
 
 jobDemandSchema.virtual('remainingPositions').get(function() {
   return this.totalPositions - this.filledPositions;

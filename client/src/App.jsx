@@ -13,6 +13,8 @@ import PassportDetail from './pages/PassportDetail';
 import PassportScanner from './components/modules/PassportScanner';
 import CandidateList from './pages/CandidateList';
 import DirectoryPage from './pages/DirectoryPage';
+import StaffPage from './pages/StaffPage';
+import SponsorPage from './pages/SponsorPage';
 import DemandList from './pages/DemandList';
 import DemandDetail from './pages/DemandDetail';
 import Finance from './pages/Finance';
@@ -149,10 +151,24 @@ const App = () => {
         />
         <Route
           path="/directory"
+          element={<Navigate to="/directory/staff" replace />}
+        />
+        <Route
+          path="/directory/staff"
           element={
             <ProtectedRoute>
               <Layout>
-                <DirectoryPage />
+                <StaffPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/directory/sponsors"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <SponsorPage />
               </Layout>
             </ProtectedRoute>
           }

@@ -56,12 +56,21 @@ const errorHandler = (err, req, res, next) => {
 
   // Mongoose duplicate key
   if (err.code === 11000) {
-    const field = Object.keys(err.keyValue || {})[0] || 'field';
-    const value = err.keyValue?.[field];
+    const keyValue = err.keyValue || {};
+    const fields = Object.keys(keyValue).filter(k => k !== 'agencyId');
+    const field = fields[0] || Object.keys(keyValue)[0] || 'field';
+    const value = keyValue[field];
+    const label = field
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/^./, s => s.toUpperCase())
+      .trim();
+    const message = value
+      ? `${label} '${value}' already exists`
+      : `${label} already exists`;
     return res.status(409).json({
       success: false,
-      message: `${field} '${value}' already exists in this agency`,
-      errors: []
+      message,
+      errors: [{ field, message }]
     });
   }
 

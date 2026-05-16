@@ -233,6 +233,12 @@ const getCandidateById = asyncHandler(async (req, res) => {
   const passport = await Passport.findOne({ candidateId: candidate._id });
   if (passport) {
     candidateData.passportId = passport._id;
+
+    // Repair: if candidate has no phone but passport has contactPhone, sync it
+    if (!candidateData.phone && passport.contactPhone) {
+      candidateData.phone = passport.contactPhone;
+      await Candidate.findByIdAndUpdate(candidate._id, { phone: passport.contactPhone });
+    }
   }
 
   res.status(200).json(candidateData);
@@ -1464,5 +1470,28 @@ export default {
     });
 
     res.status(200).json({ rows });
-  })
+  }),
+
+  updateProfileSection: asyncHandler(async (req, res) => {
+    const allowed = [
+      'bankInfo', 'training', 'academic', 'nomineeInfo',
+      'permanentProvince', 'permanentDistrict', 'permanentMunicipality', 'permanentWardNo',
+      'temporaryAddress', 'temporaryMunicipality', 'temporaryDistrict', 'temporaryProvince',
+      'visaNumber', 'visaIssuedDate', 'visaReceivedDate', 'visaExpiryDate',
+      'kdnBpaNo', 'branchInfo', 'maritalStatus', 'religion',
+    ];
+
+    const updates = Object.fromEntries(
+      Object.entries(req.body).filter(([k]) => allowed.includes(k))
+    );
+
+    const candidate = await Candidate.findOneAndUpdate(
+      scopeFilter(req, { _id: req.params.id }),
+      { $set: updates },
+      { new: true, runValidators: false }
+    );
+
+    if (!candidate) return res.status(404).json({ message: 'Candidate not found' });
+    res.status(200).json({ success: true, candidate });
+  }),
 };

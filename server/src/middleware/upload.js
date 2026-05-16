@@ -238,4 +238,59 @@ export const uploadAgencyLogo = multer({
   }
 });
 
+/**
+ * Generic document upload middleware factory with Cloudinary-first storage.
+ * @param {string|Function} folder - Cloudinary folder name, or a function (fieldname) => folderName for multi-field uploads.
+ * @param {Object} options - Optional: { fileSize } (default 10MB)
+ */
+export const createDocumentUpload = (folder, options = {}) => {
+  const { fileSize = 10 * 1024 * 1024 } = options;
+
+  const resolveFolder = (fieldname) =>
+    typeof folder === 'function' ? folder(fieldname) : folder;
+
+  let storage;
+
+  if (CloudinaryStorage && isCloudinaryConfigured()) {
+    storage = new CloudinaryStorage({
+      cloudinary,
+      params: async (req, file) => {
+        const agencyId = buildAgencySegment(req);
+        const resolved = resolveFolder(file.fieldname);
+        return {
+          folder: `manpoweros/${agencyId}/${resolved}`,
+          allowed_formats: ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
+          public_id: `${resolved.replace(/\//g, '_')}_${Date.now()}_${Math.round(Math.random() * 1e9)}`,
+          resource_type: 'auto',
+        };
+      },
+    });
+  } else {
+    storage = multer.diskStorage({
+      destination: (req, file, cb) => {
+        const resolved = resolveFolder(file.fieldname);
+        const uploadDir = path.join(process.cwd(), 'uploads', resolved);
+        ensureDirExists(uploadDir);
+        cb(null, uploadDir);
+      },
+      filename: (req, file, cb) => {
+        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+        cb(null, `${uniqueSuffix}${path.extname(file.originalname)}`);
+      },
+    });
+  }
+
+  const fileFilter = (req, file, cb) => {
+    const allowed = /jpeg|jpg|png|pdf|webp/;
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.test(ext) && allowed.test(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only JPG, PNG, WEBP, and PDF files are allowed'), false);
+    }
+  };
+
+  return multer({ storage, limits: { fileSize }, fileFilter });
+};
+
 export default { uploadOrientationCert, uploadAttendanceSheet, deleteCloudinaryFile, isCloudinaryConfigured, uploadPassportScan, passportScanStorage };

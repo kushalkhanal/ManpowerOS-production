@@ -7,7 +7,7 @@ const EditPassportModal = ({ isOpen, onClose, onSuccess, passport }) => {
   const [formData, setFormData] = useState({
     contactPhone: '',
     passportNumber: '',
-    personalNumber: '',
+    guardianNumber: '',
     fullName: '',
     dateOfBirth: '',
     gender: '',
@@ -25,7 +25,7 @@ const EditPassportModal = ({ isOpen, onClose, onSuccess, passport }) => {
       setFormData({
         contactPhone: passport.contactPhone || passport.candidateId?.phone || '',
         passportNumber: passport.passportNumber || '',
-        personalNumber: passport.personalNumber || '',
+        guardianNumber: passport.guardianNumber || '',
         fullName: passport.fullName || '',
         dateOfBirth: passport.dateOfBirth ? new Date(passport.dateOfBirth).toISOString().split('T')[0] : '',
         gender: passport.gender || '',
@@ -125,11 +125,11 @@ const EditPassportModal = ({ isOpen, onClose, onSuccess, passport }) => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Personal No.</label>
+                    <label className="block text-sm font-medium text-gray-700">Guardian Number</label>
                     <input
                       type="text"
-                      name="personalNumber"
-                      value={formData.personalNumber}
+                      name="guardianNumber"
+                      value={formData.guardianNumber}
                       onChange={handleChange}
                       placeholder="Optional"
                       className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"

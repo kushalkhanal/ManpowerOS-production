@@ -33,10 +33,10 @@ const createInsuranceSsf = asyncHandler(async (req, res) => {
   };
 
   if (req.files?.insuranceReceipt?.[0]) {
-    recordData.insurancePaidReceiptUrl = `/uploads/insurance/${req.files.insuranceReceipt[0].filename}`;
+    recordData.insurancePaidReceiptUrl = req.files.insuranceReceipt[0].path;
   }
   if (req.files?.ssfReceipt?.[0]) {
-    recordData.ssfReceiptUrl = `/uploads/ssf/${req.files.ssfReceipt[0].filename}`;
+    recordData.ssfReceiptUrl = req.files.ssfReceipt[0].path;
   }
 
   const record = await InsuranceSsf.create(recordData);
@@ -76,10 +76,10 @@ const updateInsuranceSsf = asyncHandler(async (req, res) => {
 
   // Handle file uploads
   if (req.files?.insuranceReceipt?.[0]) {
-    updates.insurancePaidReceiptUrl = `/uploads/insurance/${req.files.insuranceReceipt[0].filename}`;
+    updates.insurancePaidReceiptUrl = req.files.insuranceReceipt[0].path;
   }
   if (req.files?.ssfReceipt?.[0]) {
-    updates.ssfReceiptUrl = `/uploads/ssf/${req.files.ssfReceipt[0].filename}`;
+    updates.ssfReceiptUrl = req.files.ssfReceipt[0].path;
   }
 
   // Update fields

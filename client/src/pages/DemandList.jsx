@@ -7,7 +7,7 @@ import {
   COUNTRY_FLAGS, DEMAND_STATUS_COLORS, DEMAND_STATUS_LABELS, DESIRED_COUNTRIES
 } from '../utils/constants';
 import {
-  Briefcase, Plus, RefreshCw, AlertCircle, AlertTriangle, ChevronDown, X
+  Briefcase, Plus, RefreshCw, AlertCircle, AlertTriangle, ChevronDown, X, Trash2
 } from 'lucide-react';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -30,7 +30,10 @@ function stackReason(demand) {
 
 // ─── Demand card ──────────────────────────────────────────────────────────────
 
-function DemandCard({ demand, showStackTag }) {
+function DemandCard({ demand, showStackTag, onDelete }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   const days       = daysUntil(demand.demandLetterExpiryDate);
   const isExpired  = days !== null && days <= 0;
   const isExpiring = days !== null && days > 0 && days <= 30;
@@ -43,26 +46,42 @@ function DemandCard({ demand, showStackTag }) {
     isExpiring  ? 'border-l-amber-500' :
                   'border-l-emerald-500';
 
+  const handleDelete = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirmDelete) { setConfirmDelete(true); return; }
+    setDeleting(true);
+    try { await onDelete(demand._id); }
+    finally { setDeleting(false); setConfirmDelete(false); }
+  };
+
+  const cancelDelete = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setConfirmDelete(false);
+  };
+
   return (
-    <Link
-      to={`/demands/${demand._id}`}
-      className={`bg-white rounded-xl border border-gray-100 border-l-4 ${accent} p-4 hover:shadow-md hover:border-gray-200 transition-all`}
-    >
-      <div className="flex items-start justify-between gap-3 mb-1.5">
-        <h3 className="text-base font-semibold text-gray-900 leading-tight truncate flex-1">
-          {demand.employerCompanyName || 'Unnamed employer'}
-        </h3>
-        <div className="flex flex-col items-end gap-1 flex-shrink-0">
-          <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded-full ${DEMAND_STATUS_COLORS[demand.status] || 'bg-gray-100 text-gray-700'}`}>
-            {DEMAND_STATUS_LABELS[demand.status] || demand.status}
-          </span>
-          {showStackTag && (
-            <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full ${stackReason(demand).cls}`}>
-              {stackReason(demand).label}
+    <div className="relative group">
+      <Link
+        to={`/demands/${demand._id}`}
+        className={`block bg-white rounded-xl border border-gray-100 border-l-4 ${accent} p-4 hover:shadow-md hover:border-gray-200 transition-all`}
+      >
+        <div className="flex items-start justify-between gap-3 mb-1.5">
+          <h3 className="text-base font-semibold text-gray-900 leading-tight truncate flex-1">
+            {demand.employerCompanyName || 'Unnamed employer'}
+          </h3>
+          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+            <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded-full ${DEMAND_STATUS_COLORS[demand.status] || 'bg-gray-100 text-gray-700'}`}>
+              {DEMAND_STATUS_LABELS[demand.status] || demand.status}
             </span>
-          )}
+            {showStackTag && (
+              <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full ${stackReason(demand).cls}`}>
+                {stackReason(demand).label}
+              </span>
+            )}
+          </div>
         </div>
-      </div>
 
       <div className="text-xs text-gray-500 mb-2 flex flex-wrap items-center gap-x-2 gap-y-0.5">
         <span>
@@ -91,21 +110,52 @@ function DemandCard({ demand, showStackTag }) {
         </div>
       </div>
 
-      {demand.demandLetterExpiryDate && (
-        <p className={`text-[11px] ${isExpired ? 'text-red-600 font-semibold' : isExpiring ? 'text-amber-600 font-medium' : 'text-gray-400'}`}>
-          {isExpired
-            ? `Expired ${-days}d ago`
-            : `Expires ${fmtDate(demand.demandLetterExpiryDate)} · ${days}d left`}
-        </p>
-      )}
-    </Link>
+        {demand.demandLetterExpiryDate && (
+          <p className={`text-[11px] ${isExpired ? 'text-red-600 font-semibold' : isExpiring ? 'text-amber-600 font-medium' : 'text-gray-400'}`}>
+            {isExpired
+              ? `Expired ${-days}d ago`
+              : `Expires ${fmtDate(demand.demandLetterExpiryDate)} · ${days}d left`}
+          </p>
+        )}
+      </Link>
+
+      {/* Delete button — shown on hover */}
+      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        {confirmDelete ? (
+          <div className="flex items-center gap-1 bg-white border border-red-200 rounded-lg shadow px-2 py-1">
+            <span className="text-[11px] text-red-600 font-medium">Delete?</span>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="text-[11px] text-white bg-red-500 hover:bg-red-600 rounded px-1.5 py-0.5 disabled:opacity-50"
+            >
+              {deleting ? '…' : 'Yes'}
+            </button>
+            <button
+              onClick={cancelDelete}
+              className="text-[11px] text-gray-500 hover:text-gray-700 rounded px-1.5 py-0.5"
+            >
+              No
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={handleDelete}
+            className="p-1 bg-white border border-gray-200 rounded-lg shadow text-gray-400 hover:text-red-500 hover:border-red-200 transition-colors"
+            title="Delete demand"
+          >
+            <Trash2 size={13} />
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const DemandList = () => {
-  const { demands, loading, pagination, getDemands, getExpiring, expiringDemands, error } = useJobDemands();
+  const { demands, loading, pagination, getDemands, getExpiring, expiringDemands, error, deleteDemand } = useJobDemands();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [statusFilter, setStatusFilter]   = useState(searchParams.get('status') || '');
@@ -308,7 +358,7 @@ const DemandList = () => {
         ) : (
           <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 ${loading ? 'opacity-60' : ''}`}>
             {displayedDemands.map(d => (
-              <DemandCard key={d._id} demand={d} showStackTag={viewMode === 'stack'} />
+              <DemandCard key={d._id} demand={d} showStackTag={viewMode === 'stack'} onDelete={deleteDemand} />
             ))}
           </div>
         )}

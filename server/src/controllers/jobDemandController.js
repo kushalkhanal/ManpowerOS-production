@@ -19,16 +19,6 @@ const createDemand = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'Required fields are missing' });
   }
 
-  if (demandLetterNumber) {
-    const existing = await JobDemand.findOne({
-      agencyId: req.user.agencyId,
-      demandLetterNumber
-    });
-    if (existing) {
-      return res.status(400).json({ message: 'Demand letter number already exists' });
-    }
-  }
-
   const files = req.files || {};
   const toServedUrl = (f) => (f ? `/uploads/demands/${f.filename}` : undefined);
 
@@ -183,17 +173,6 @@ const updateDemand = asyncHandler(async (req, res) => {
   }
   if (uploadedFiles.embassyAttested?.[0]) {
     updates.embassyAttestedDemandUrl = `/uploads/demands/${uploadedFiles.embassyAttested[0].filename}`;
-  }
-
-  if (updates.demandLetterNumber) {
-    const existing = await JobDemand.findOne({
-      agencyId: req.user.agencyId,
-      demandLetterNumber: updates.demandLetterNumber,
-      _id: { $ne: req.params.id }
-    });
-    if (existing) {
-      return res.status(400).json({ message: 'Demand letter number already exists' });
-    }
   }
 
   const demand = await JobDemand.findOneAndUpdate(

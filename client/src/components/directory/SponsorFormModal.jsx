@@ -12,6 +12,14 @@ const SponsorFormModal = ({ isOpen, onClose, onSuccess, sponsor = null }) => {
   const [searchStaff, setSearchStaff] = useState('');
   const [showStaffDropdown, setShowStaffDropdown] = useState(false);
 
+  const ROLE_DEFAULT_PERMISSIONS = {
+    agent:        ['canViewOwnCandidates'],
+    senior_agent: ['canReferCandidates', 'canViewOwnCandidates', 'canViewAllCandidates'],
+    partner:      ['canReferCandidates', 'canViewAllCandidates', 'canExportCandidates'],
+    coordinator:  ['canReferCandidates', 'canViewAllCandidates', 'canEditOwnCandidates'],
+    manager:      ['canReferCandidates', 'canViewAllCandidates', 'canEditOwnCandidates', 'canExportCandidates'],
+  };
+
   const [formData, setFormData] = useState({
     fullName: '',
     fullNameNepali: '',
@@ -23,7 +31,7 @@ const SponsorFormModal = ({ isOpen, onClose, onSuccess, sponsor = null }) => {
     citizenshipIssuedDistrict: '',
     citizenshipIssuedDate: '',
     role: 'agent',
-    permissions: ['canReferCandidates', 'canViewOwnCandidates'],
+    permissions: ['canViewOwnCandidates'],
     assignedStaffId: '',
     notes: '',
     primaryArea: '',
@@ -50,7 +58,7 @@ const SponsorFormModal = ({ isOpen, onClose, onSuccess, sponsor = null }) => {
           citizenshipIssuedDistrict: sponsor.citizenshipIssuedDistrict || '',
           citizenshipIssuedDate: sponsor.citizenshipIssuedDate?.split('T')[0] || '',
           role: sponsor.role || 'agent',
-          permissions: sponsor.permissions || ['canReferCandidates', 'canViewOwnCandidates'],
+          permissions: sponsor.permissions || ROLE_DEFAULT_PERMISSIONS[sponsor.role] || ['canViewOwnCandidates'],
           assignedStaffId: sponsor.assignedStaffId?._id || sponsor.assignedStaffId || '',
           notes: sponsor.notes || '',
           primaryArea: sponsor.primaryArea || '',
@@ -74,7 +82,7 @@ const SponsorFormModal = ({ isOpen, onClose, onSuccess, sponsor = null }) => {
           citizenshipIssuedDistrict: '',
           citizenshipIssuedDate: '',
           role: 'agent',
-          permissions: ['canReferCandidates', 'canViewOwnCandidates'],
+          permissions: ['canViewOwnCandidates'],
           assignedStaffId: '',
           notes: '',
           primaryArea: '',
@@ -103,7 +111,11 @@ const SponsorFormModal = ({ isOpen, onClose, onSuccess, sponsor = null }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+      ...(name === 'role' ? { permissions: ROLE_DEFAULT_PERMISSIONS[value] || ['canViewOwnCandidates'] } : {})
+    }));
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
@@ -348,89 +360,99 @@ const SponsorFormModal = ({ isOpen, onClose, onSuccess, sponsor = null }) => {
                       </select>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Permissions</label>
-                      <div className="flex flex-wrap gap-2">
-                        {[
-                          { value: 'canReferCandidates', label: 'Can Refer Candidates' },
-                          { value: 'canViewOwnCandidates', label: 'View Own Candidates' },
-                          { value: 'canEditOwnCandidates', label: 'Edit Own Candidates' },
-                          { value: 'canDeleteOwnCandidates', label: 'Delete Own Candidates' },
-                          { value: 'canViewAllCandidates', label: 'View All Candidates' },
-                          { value: 'canExportCandidates', label: 'Export Candidates' }
-                        ].map(perm => (
-                          <label key={perm.value} className="inline-flex items-center">
-                            <input
-                              type="checkbox"
-                              checked={formData.permissions.includes(perm.value)}
-                              onChange={(e) => {
-                                setFormData(prev => ({
-                                  ...prev,
-                                  permissions: e.target.checked
-                                    ? [...prev.permissions, perm.value]
-                                    : prev.permissions.filter(p => p !== perm.value)
-                                }));
-                              }}
-                              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                            />
-                            <span className="ml-2 text-sm text-gray-700">{perm.label}</span>
-                          </label>
-                        ))}
+                    {formData.role === 'agent' ? (
+                      <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                        <p className="text-xs text-gray-500">
+                          <span className="font-medium text-gray-700">Access:</span> View own candidates only. No editing or export.
+                        </p>
                       </div>
-                    </div>
+                    ) : (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Permissions</label>
+                        <div className="flex flex-wrap gap-2">
+                          {[
+                            { value: 'canReferCandidates', label: 'Can Refer Candidates' },
+                            { value: 'canViewOwnCandidates', label: 'View Own Candidates' },
+                            { value: 'canEditOwnCandidates', label: 'Edit Own Candidates' },
+                            { value: 'canDeleteOwnCandidates', label: 'Delete Own Candidates' },
+                            { value: 'canViewAllCandidates', label: 'View All Candidates' },
+                            { value: 'canExportCandidates', label: 'Export Candidates' }
+                          ].map(perm => (
+                            <label key={perm.value} className="inline-flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={formData.permissions.includes(perm.value)}
+                                onChange={(e) => {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    permissions: e.target.checked
+                                      ? [...prev.permissions, perm.value]
+                                      : prev.permissions.filter(p => p !== perm.value)
+                                  }));
+                                }}
+                                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                              />
+                              <span className="ml-2 text-sm text-gray-700">{perm.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                    <div className="mt-4 pt-4 border-t">
-                      <h4 className="text-sm font-medium text-gray-900 mb-3">Optional Details</h4>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Overseas Company</label>
-                          <input
-                            type="text"
-                            name="overseasCompany"
-                            value={formData.overseasCompany}
-                            onChange={handleChange}
-                            placeholder="Company name"
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Sponsor Number</label>
-                          <input
-                            type="text"
-                            name="sponsorNumber"
-                            value={formData.sponsorNumber}
-                            onChange={handleChange}
-                            placeholder="Sponsor ID"
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Sponsor Contact Number</label>
-                          <input
-                            type="text"
-                            name="sponsorContactNumber"
-                            value={formData.sponsorContactNumber}
-                            onChange={handleChange}
-                            placeholder="Contact number"
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Assigned Staff</label>
-                          <select
-                            name="assignedStaffId"
-                            value={formData.assignedStaffId}
-                            onChange={handleChange}
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                          >
-                            <option value="">Select Staff</option>
-                            {staffList.map(staff => (
-                              <option key={staff._id} value={staff._id}>{staff.name}</option>
-                            ))}
-                          </select>
+                    {formData.role !== 'agent' && (
+                      <div className="mt-4 pt-4 border-t">
+                        <h4 className="text-sm font-medium text-gray-900 mb-3">Optional Details</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Overseas Company</label>
+                            <input
+                              type="text"
+                              name="overseasCompany"
+                              value={formData.overseasCompany}
+                              onChange={handleChange}
+                              placeholder="Company name"
+                              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Sponsor Number</label>
+                            <input
+                              type="text"
+                              name="sponsorNumber"
+                              value={formData.sponsorNumber}
+                              onChange={handleChange}
+                              placeholder="Sponsor ID"
+                              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Sponsor Contact Number</label>
+                            <input
+                              type="text"
+                              name="sponsorContactNumber"
+                              value={formData.sponsorContactNumber}
+                              onChange={handleChange}
+                              placeholder="Contact number"
+                              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Assigned Staff</label>
+                            <select
+                              name="assignedStaffId"
+                              value={formData.assignedStaffId}
+                              onChange={handleChange}
+                              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                            >
+                              <option value="">Select Staff</option>
+                              {staffList.map(staff => (
+                                <option key={staff._id} value={staff._id}>{staff.name}</option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
 
                     <div className="mt-3">
                       <label className="block text-sm font-medium text-gray-700">Notes</label>
