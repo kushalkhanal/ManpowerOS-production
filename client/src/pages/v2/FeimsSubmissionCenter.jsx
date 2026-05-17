@@ -1,33 +1,69 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import {
-  Globe, CheckCircle2, Clock, AlertCircle, Search,
-  ExternalLink, ChevronDown, ChevronRight, Save, RefreshCw
-} from 'lucide-react';
-import feimsApi from '../../api/feims.api.js';
-import { STATUS_LABELS, STATUS_COLORS, getCountryFlag } from '../../domain/workflow';
-import { showToast } from '../../components/ToastProvider';
+  Globe,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  Search,
+  ExternalLink,
+  ChevronDown,
+  ChevronRight,
+  Save,
+  RefreshCw,
+} from "lucide-react";
+import feimsApi from "../../api/feims.api.js";
+import {
+  STATUS_LABELS,
+  STATUS_COLORS,
+  getCountryFlag,
+} from "../../domain/workflow";
+import { showToast } from "../../components/ToastProvider";
 
-const FEIMS_PORTAL = 'https://feims.dofe.gov.np';
+const FEIMS_PORTAL = "https://feims.dofe.gov.np";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const fmtDate = (d) => {
-  if (!d) return '—';
+  if (!d) return "—";
   try {
-    return new Date(d).toLocaleDateString('en-GB', {
-      day: '2-digit', month: 'short', year: 'numeric'
+    return new Date(d).toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
     });
-  } catch { return '—'; }
+  } catch {
+    return "—";
+  }
 };
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
 
 const STAT_STYLES = {
-  ready:      { bg: 'bg-amber-50',  border: 'border-amber-200',  text: 'text-amber-700',  num: 'text-amber-600' },
-  submitted:  { bg: 'bg-blue-50',   border: 'border-blue-200',   text: 'text-blue-700',   num: 'text-blue-600' },
-  registered: { bg: 'bg-green-50',  border: 'border-green-200',  text: 'text-green-700',  num: 'text-green-600' },
-  approaching:{ bg: 'bg-gray-50',   border: 'border-gray-200',   text: 'text-gray-600',   num: 'text-gray-500' },
+  ready: {
+    bg: "bg-amber-50",
+    border: "border-amber-200",
+    text: "text-amber-700",
+    num: "text-amber-600",
+  },
+  submitted: {
+    bg: "bg-blue-50",
+    border: "border-blue-200",
+    text: "text-blue-700",
+    num: "text-blue-600",
+  },
+  registered: {
+    bg: "bg-green-50",
+    border: "border-green-200",
+    text: "text-green-700",
+    num: "text-green-600",
+  },
+  approaching: {
+    bg: "bg-gray-50",
+    border: "border-gray-200",
+    text: "text-gray-600",
+    num: "text-gray-500",
+  },
 };
 
 const StatCard = ({ label, count, variant, onClick, active }) => {
@@ -36,11 +72,19 @@ const StatCard = ({ label, count, variant, onClick, active }) => {
     <button
       onClick={onClick}
       className={`w-full text-left rounded-xl border-2 px-4 py-3 transition-all ${
-        active ? `${s.bg} ${s.border}` : 'bg-white border-gray-100 hover:border-gray-200'
+        active
+          ? `${s.bg} ${s.border}`
+          : "bg-white border-gray-100 hover:border-gray-200"
       }`}
     >
-      <p className={`text-2xl font-bold ${active ? s.num : 'text-gray-700'}`}>{count}</p>
-      <p className={`text-xs font-medium mt-0.5 ${active ? s.text : 'text-gray-500'}`}>{label}</p>
+      <p className={`text-2xl font-bold ${active ? s.num : "text-gray-700"}`}>
+        {count}
+      </p>
+      <p
+        className={`text-xs font-medium mt-0.5 ${active ? s.text : "text-gray-500"}`}
+      >
+        {label}
+      </p>
     </button>
   );
 };
@@ -48,7 +92,10 @@ const StatCard = ({ label, count, variant, onClick, active }) => {
 // ─── Inline reg number form ────────────────────────────────────────────────────
 
 const RegForm = ({ candidateId, onSaved, onCancel }) => {
-  const [form, setForm]     = useState({ feimsRegistrationNumber: '', dofeFileNumber: '' });
+  const [form, setForm] = useState({
+    feimsRegistrationNumber: "",
+    dofeFileNumber: "",
+  });
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -57,14 +104,14 @@ const RegForm = ({ candidateId, onSaved, onCancel }) => {
     try {
       await feimsApi.updateRegistration(candidateId, {
         feimsRegistrationNumber: form.feimsRegistrationNumber.trim(),
-        dofeFileNumber:          form.dofeFileNumber.trim() || undefined,
-        feimsSubmittedAt:        new Date().toISOString(),
-        feimsApprovalStatus:     'pending'
+        dofeFileNumber: form.dofeFileNumber.trim() || undefined,
+        feimsSubmittedAt: new Date().toISOString(),
+        feimsApprovalStatus: "pending",
       });
-      showToast.success('FEIMS registration recorded');
+      showToast.success("FEIMS registration recorded");
       onSaved();
     } catch (err) {
-      showToast.error(err.response?.data?.message || 'Failed to save');
+      showToast.error(err.response?.data?.message || "Failed to save");
     } finally {
       setSaving(false);
     }
@@ -72,7 +119,9 @@ const RegForm = ({ candidateId, onSaved, onCancel }) => {
 
   return (
     <div className="border-t border-gray-100 bg-gray-50/80 px-4 py-3">
-      <p className="text-xs font-semibold text-gray-600 mb-2">Record FEIMS Registration</p>
+      <p className="text-xs font-semibold text-gray-600 mb-2">
+        Record FEIMS Registration
+      </p>
       <div className="flex flex-wrap gap-2 items-end">
         <div className="flex-1 min-w-[160px]">
           <label className="text-[10px] text-gray-400 uppercase tracking-wide block mb-1">
@@ -82,7 +131,12 @@ const RegForm = ({ candidateId, onSaved, onCancel }) => {
             type="text"
             placeholder="e.g. FEIMS-2081-XXXXXX"
             value={form.feimsRegistrationNumber}
-            onChange={e => setForm(f => ({ ...f, feimsRegistrationNumber: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                feimsRegistrationNumber: e.target.value,
+              }))
+            }
             className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-cyan-400"
           />
         </div>
@@ -94,7 +148,9 @@ const RegForm = ({ candidateId, onSaved, onCancel }) => {
             type="text"
             placeholder="e.g. DoFE/081/XXXXX"
             value={form.dofeFileNumber}
-            onChange={e => setForm(f => ({ ...f, dofeFileNumber: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, dofeFileNumber: e.target.value }))
+            }
             className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-cyan-400"
           />
         </div>
@@ -104,10 +160,15 @@ const RegForm = ({ candidateId, onSaved, onCancel }) => {
             disabled={!form.feimsRegistrationNumber.trim() || saving}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 text-white text-sm font-medium rounded-lg hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {saving
-              ? <><RefreshCw size={12} className="animate-spin" /> Saving…</>
-              : <><Save size={12} /> Save</>
-            }
+            {saving ? (
+              <>
+                <RefreshCw size={12} className="animate-spin" /> Saving…
+              </>
+            ) : (
+              <>
+                <Save size={12} /> Save
+              </>
+            )}
           </button>
           <button
             onClick={onCancel}
@@ -123,61 +184,82 @@ const RegForm = ({ candidateId, onSaved, onCancel }) => {
 
 // ─── Candidate row ────────────────────────────────────────────────────────────
 
-const CandidateRow = ({ candidate, variant, showRegForm, onToggleReg, onRegSaved }) => {
+const CandidateRow = ({
+  candidate,
+  variant,
+  showRegForm,
+  onToggleReg,
+  onRegSaved,
+}) => {
   const s = STAT_STYLES[variant];
 
   return (
     <div className="border-b border-gray-50 last:border-0">
       <div className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50/60 transition-colors">
         {/* Status dot */}
-        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-          variant === 'registered' ? 'bg-green-500' :
-          variant === 'ready'      ? 'bg-amber-400' :
-          variant === 'submitted'  ? 'bg-blue-400'  :
-                                     'bg-gray-300'
-        }`} />
+        <div
+          className={`w-2 h-2 rounded-full flex-shrink-0 ${
+            variant === "registered"
+              ? "bg-green-500"
+              : variant === "ready"
+                ? "bg-amber-400"
+                : variant === "submitted"
+                  ? "bg-blue-400"
+                  : "bg-gray-300"
+          }`}
+        />
 
         {/* Candidate info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-semibold text-gray-900">{candidate.fullName}</span>
+            <span className="text-sm font-semibold text-gray-900">
+              {candidate.fullName}
+            </span>
             {candidate.country && (
               <span className="text-sm" title={candidate.country}>
                 {getCountryFlag(candidate.country)}
               </span>
             )}
-            <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${
-              STATUS_COLORS[candidate.status] || 'bg-gray-100 text-gray-600'
-            }`}>
+            <span
+              className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${
+                STATUS_COLORS[candidate.status] || "bg-gray-100 text-gray-600"
+              }`}
+            >
               {STATUS_LABELS[candidate.status] || candidate.status}
             </span>
           </div>
 
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             {candidate.demandCompany && (
-              <span className="text-xs text-gray-500">{candidate.demandCompany}</span>
+              <span className="text-xs text-gray-500">
+                {candidate.demandCompany}
+              </span>
             )}
             {candidate.demandLetterNumber && (
-              <span className="text-xs text-gray-400">· {candidate.demandLetterNumber}</span>
-            )}
-
-            {variant === 'registered' && (
-              <span className="text-xs font-medium text-green-700">
-                · FEIMS: {candidate.feimsRegistrationNumber}
-                {candidate.dofeFileNumber && ` · DoFE: ${candidate.dofeFileNumber}`}
+              <span className="text-xs text-gray-400">
+                · {candidate.demandLetterNumber}
               </span>
             )}
 
-            {variant === 'submitted' && candidate.feimsSubmittedAt && (
+            {variant === "registered" && (
+              <span className="text-xs font-medium text-green-700">
+                · FEIMS: {candidate.feimsRegistrationNumber}
+                {candidate.dofeFileNumber &&
+                  ` · DoFE: ${candidate.dofeFileNumber}`}
+              </span>
+            )}
+
+            {variant === "submitted" && candidate.feimsSubmittedAt && (
               <span className="text-xs text-blue-600">
                 · Submitted {fmtDate(candidate.feimsSubmittedAt)}
               </span>
             )}
 
-            {variant === 'approaching' && candidate.missingCount > 0 && (
+            {variant === "approaching" && candidate.missingCount > 0 && (
               <span className="text-xs text-red-500">
-                · Missing: {candidate.missingFields.slice(0, 3).join(', ')}
-                {candidate.missingFields.length > 3 && ` +${candidate.missingFields.length - 3} more`}
+                · Missing: {candidate.missingFields.slice(0, 3).join(", ")}
+                {candidate.missingFields.length > 3 &&
+                  ` +${candidate.missingFields.length - 3} more`}
               </span>
             )}
 
@@ -198,16 +280,16 @@ const CandidateRow = ({ candidate, variant, showRegForm, onToggleReg, onRegSaved
             Open →
           </Link>
 
-          {(variant === 'ready' || variant === 'submitted') && (
+          {(variant === "ready" || variant === "submitted") && (
             <button
               onClick={() => onToggleReg(candidate._id)}
               className={`text-xs px-2.5 py-1 rounded-lg font-medium transition-colors ${
                 showRegForm
-                  ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  : 'bg-cyan-50 text-cyan-700 hover:bg-cyan-100 border border-cyan-200'
+                  ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  : "bg-cyan-50 text-cyan-700 hover:bg-cyan-100 border border-cyan-200"
               }`}
             >
-              {showRegForm ? 'Cancel' : 'Record Reg#'}
+              {showRegForm ? "Cancel" : "Record Reg#"}
             </button>
           )}
         </div>
@@ -227,8 +309,14 @@ const CandidateRow = ({ candidate, variant, showRegForm, onToggleReg, onRegSaved
 // ─── Section ──────────────────────────────────────────────────────────────────
 
 const Section = ({
-  title, icon: Icon, variant, candidates,
-  expandedReg, onToggleReg, onRegSaved, defaultOpen = true
+  title,
+  icon: Icon,
+  variant,
+  candidates,
+  expandedReg,
+  onToggleReg,
+  onRegSaved,
+  defaultOpen = true,
 }) => {
   const [open, setOpen] = useState(defaultOpen);
   const s = STAT_STYLES[variant];
@@ -238,23 +326,28 @@ const Section = ({
   return (
     <div className="mb-4 bg-white rounded-xl border border-gray-100 overflow-hidden">
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors"
       >
         <Icon size={14} className={s.text} />
-        <span className="text-sm font-semibold text-gray-800 flex-1">{title}</span>
-        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.bg} ${s.text}`}>
+        <span className="text-sm font-semibold text-gray-800 flex-1">
+          {title}
+        </span>
+        <span
+          className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.bg} ${s.text}`}
+        >
           {candidates.length}
         </span>
-        {open
-          ? <ChevronDown size={13} className="text-gray-400" />
-          : <ChevronRight size={13} className="text-gray-400" />
-        }
+        {open ? (
+          <ChevronDown size={13} className="text-gray-400" />
+        ) : (
+          <ChevronRight size={13} className="text-gray-400" />
+        )}
       </button>
 
       {open && (
         <div className="border-t border-gray-50">
-          {candidates.map(c => (
+          {candidates.map((c) => (
             <CandidateRow
               key={String(c._id)}
               candidate={c}
@@ -273,13 +366,15 @@ const Section = ({
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 const FeimsSubmissionCenter = () => {
-  const [queue, setQueue]           = useState(null);
-  const [loading, setLoading]       = useState(true);
-  const [search, setSearch]         = useState('');
-  const [filter, setFilter]         = useState('all');
+  const [queue, setQueue] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("all");
   const [expandedReg, setExpandedReg] = useState(new Set());
 
-  useEffect(() => { loadQueue(); }, []);
+  useEffect(() => {
+    loadQueue();
+  }, []);
 
   const loadQueue = async () => {
     try {
@@ -287,14 +382,14 @@ const FeimsSubmissionCenter = () => {
       const res = await feimsApi.getQueue();
       setQueue(res.data.data || res.data);
     } catch (err) {
-      showToast.error('Failed to load FEIMS queue');
+      showToast.error("Failed to load FEIMS queue");
     } finally {
       setLoading(false);
     }
   };
 
   const toggleReg = (candidateId) => {
-    setExpandedReg(prev => {
+    setExpandedReg((prev) => {
       const next = new Set(prev);
       next.has(candidateId) ? next.delete(candidateId) : next.add(candidateId);
       return next;
@@ -310,23 +405,25 @@ const FeimsSubmissionCenter = () => {
     if (!candidates) return [];
     if (!search.trim()) return candidates;
     const q = search.toLowerCase();
-    return candidates.filter(c =>
-      c.fullName?.toLowerCase().includes(q) ||
-      c.demandCompany?.toLowerCase().includes(q) ||
-      c.country?.toLowerCase().includes(q) ||
-      c.feimsRegistrationNumber?.toLowerCase().includes(q)
+    return candidates.filter(
+      (c) =>
+        c.fullName?.toLowerCase().includes(q) ||
+        c.demandCompany?.toLowerCase().includes(q) ||
+        c.country?.toLowerCase().includes(q) ||
+        c.feimsRegistrationNumber?.toLowerCase().includes(q),
     );
   };
 
-  const ready      = filterCandidates(queue?.ready);
-  const submitted  = filterCandidates(queue?.submitted);
+  const ready = filterCandidates(queue?.ready);
+  const submitted = filterCandidates(queue?.submitted);
   const registered = filterCandidates(queue?.registered);
-  const approaching= filterCandidates(queue?.approaching);
+  const approaching = filterCandidates(queue?.approaching);
 
-  const total = (queue?.ready?.length || 0)
-    + (queue?.submitted?.length || 0)
-    + (queue?.registered?.length || 0)
-    + (queue?.approaching?.length || 0);
+  const total =
+    (queue?.ready?.length || 0) +
+    (queue?.submitted?.length || 0) +
+    (queue?.registered?.length || 0) +
+    (queue?.approaching?.length || 0);
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -355,43 +452,52 @@ const FeimsSubmissionCenter = () => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         <StatCard
           label="Ready to Submit"
-          count={queue?.ready?.length ?? '—'}
+          count={queue?.ready?.length ?? "—"}
           variant="ready"
-          active={filter === 'ready'}
-          onClick={() => setFilter(f => f === 'ready' ? 'all' : 'ready')}
+          active={filter === "ready"}
+          onClick={() => setFilter((f) => (f === "ready" ? "all" : "ready"))}
         />
         <StatCard
           label="Awaiting Reg. Number"
-          count={queue?.submitted?.length ?? '—'}
+          count={queue?.submitted?.length ?? "—"}
           variant="submitted"
-          active={filter === 'submitted'}
-          onClick={() => setFilter(f => f === 'submitted' ? 'all' : 'submitted')}
+          active={filter === "submitted"}
+          onClick={() =>
+            setFilter((f) => (f === "submitted" ? "all" : "submitted"))
+          }
         />
         <StatCard
           label="Registered"
-          count={queue?.registered?.length ?? '—'}
+          count={queue?.registered?.length ?? "—"}
           variant="registered"
-          active={filter === 'registered'}
-          onClick={() => setFilter(f => f === 'registered' ? 'all' : 'registered')}
+          active={filter === "registered"}
+          onClick={() =>
+            setFilter((f) => (f === "registered" ? "all" : "registered"))
+          }
         />
         <StatCard
           label="Approaching"
-          count={queue?.approaching?.length ?? '—'}
+          count={queue?.approaching?.length ?? "—"}
           variant="approaching"
-          active={filter === 'approaching'}
-          onClick={() => setFilter(f => f === 'approaching' ? 'all' : 'approaching')}
+          active={filter === "approaching"}
+          onClick={() =>
+            setFilter((f) => (f === "approaching" ? "all" : "approaching"))
+          }
         />
       </div>
 
       {/* ── Search + refresh ── */}
       <div className="flex items-center gap-3 mb-4">
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search
+            size={14}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          />
           <input
             type="text"
             placeholder="Search by name, company, country, reg. number…"
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-400 bg-white"
           />
         </div>
@@ -401,7 +507,7 @@ const FeimsSubmissionCenter = () => {
           className="p-2 border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-50"
           title="Refresh"
         >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
         </button>
       </div>
 
@@ -414,14 +520,19 @@ const FeimsSubmissionCenter = () => {
       ) : total === 0 ? (
         <div className="text-center py-16 bg-white rounded-xl border border-gray-100">
           <CheckCircle2 size={32} className="text-gray-200 mx-auto mb-3" />
-          <p className="text-gray-500 text-sm">No candidates in the FEIMS pipeline yet.</p>
-          <Link to="/candidates" className="mt-2 inline-block text-xs text-blue-600 hover:underline">
+          <p className="text-gray-500 text-sm">
+            No candidates in the FEIMS pipeline yet.
+          </p>
+          <Link
+            to="/candidates"
+            className="mt-2 inline-block text-xs text-blue-600 hover:underline"
+          >
             Go to candidates →
           </Link>
         </div>
       ) : (
         <>
-          {(filter === 'all' || filter === 'ready') && (
+          {(filter === "all" || filter === "ready") && (
             <Section
               title="Ready to Submit"
               icon={AlertCircle}
@@ -434,7 +545,7 @@ const FeimsSubmissionCenter = () => {
             />
           )}
 
-          {(filter === 'all' || filter === 'submitted') && (
+          {(filter === "all" || filter === "submitted") && (
             <Section
               title="Submitted — Awaiting Registration Number"
               icon={Clock}
@@ -447,7 +558,7 @@ const FeimsSubmissionCenter = () => {
             />
           )}
 
-          {(filter === 'all' || filter === 'registered') && (
+          {(filter === "all" || filter === "registered") && (
             <Section
               title="Registered in FEIMS"
               icon={CheckCircle2}
@@ -460,7 +571,7 @@ const FeimsSubmissionCenter = () => {
             />
           )}
 
-          {(filter === 'all' || filter === 'approaching') && (
+          {(filter === "all" || filter === "approaching") && (
             <Section
               title="Approaching — Pre-conditions Needed"
               icon={AlertCircle}
@@ -473,11 +584,16 @@ const FeimsSubmissionCenter = () => {
             />
           )}
 
-          {search && ready.length + submitted.length + registered.length + approaching.length === 0 && (
-            <div className="text-center py-12 text-gray-400 text-sm">
-              No candidates match "{search}"
-            </div>
-          )}
+          {search &&
+            ready.length +
+              submitted.length +
+              registered.length +
+              approaching.length ===
+              0 && (
+              <div className="text-center py-12 text-gray-400 text-sm">
+                No candidates match "{search}"
+              </div>
+            )}
         </>
       )}
     </div>
