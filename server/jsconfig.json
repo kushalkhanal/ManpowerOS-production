@@ -1,20 +1,20 @@
 {
   "compilerOptions": {
     "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "Node",
-    "baseUrl": ".",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "ignoreDeprecations": "6.0",
     "paths": {
-      "@/*": ["src/*"],
-      "@config/*": ["src/config/*"],
-      "@controllers/*": ["src/controllers/*"],
-      "@middleware/*": ["src/middleware/*"],
-      "@models/*": ["src/models/*"],
-      "@routes/*": ["src/routes/*"],
-      "@services/*": ["src/services/*"],
-      "@utils/*": ["src/utils/*"],
-      "@validators/*": ["src/validators/*"],
-      "@domain/*": ["src/domain/*"]
+      "@/*": ["./src/*"],
+      "@config/*": ["./src/config/*"],
+      "@controllers/*": ["./src/controllers/*"],
+      "@middleware/*": ["./src/middleware/*"],
+      "@models/*": ["./src/models/*"],
+      "@routes/*": ["./src/routes/*"],
+      "@services/*": ["./src/services/*"],
+      "@utils/*": ["./src/utils/*"],
+      "@validators/*": ["./src/validators/*"],
+      "@domain/*": ["./src/domain/*"]
     },
     "allowJs": true,
     "checkJs": false,
