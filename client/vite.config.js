@@ -1,5 +1,10 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const src = (p) => path.resolve(__dirname, "src", p);
 
 export default defineConfig({
   plugins: [react()],
@@ -7,6 +12,18 @@ export default defineConfig({
     // In npm workspaces, packages are hoisted to the root node_modules.
     // preserveSymlinks lets Vite follow workspace symlinks correctly.
     preserveSymlinks: true,
+    alias: {
+      "@": src(""),
+      "@app": src("app"),
+      "@api": src("api"),
+      "@components": src("components"),
+      "@context": src("context"),
+      "@domain": src("domain"),
+      "@hooks": src("hooks"),
+      "@lib": src("lib"),
+      "@pages": src("pages"),
+      "@utils": src("utils"),
+    },
   },
   server: {
     port: 5173,
