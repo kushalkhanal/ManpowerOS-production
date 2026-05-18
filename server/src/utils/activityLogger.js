@@ -1,4 +1,5 @@
-import CandidateActivityLog from '../models/CandidateActivityLog.js';
+import CandidateActivityLog from "../models/CandidateActivityLog.js";
+import logger from "../config/logger.js";
 
 export const logActivity = async ({
   candidateId,
@@ -13,7 +14,7 @@ export const logActivity = async ({
   fileUrl,
   fileName,
   referenceId,
-  referenceModel
+  referenceModel,
 }) => {
   try {
     await CandidateActivityLog.create({
@@ -29,10 +30,14 @@ export const logActivity = async ({
       fileUrl,
       fileName,
       referenceId,
-      referenceModel
+      referenceModel,
     });
   } catch (error) {
-    console.error('Activity logging error:', error);
+    logger.error("Activity logging error", {
+      error: error.message,
+      candidateId,
+      action,
+    });
   }
 };
 

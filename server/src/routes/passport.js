@@ -1,59 +1,64 @@
-import express from 'express';
-import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import { v4 as uuidv4 } from 'uuid';
-import passportController from '../controllers/passportController.js';
-import { authenticate, authorize } from '../middleware/authenticate.js';
-import { filterAgentCandidates, checkEditAccess, checkDeleteAccess } from '../middleware/rbac.js';
-import { validateZod } from '../validators/validateZod.js';
-import { passportSchema, passportUpdateSchema } from '../validators/zod/passport.schema.js';
-import { sensitiveOperationRateLimiter } from '../middleware/rateLimiter.js';
+import express from "express";
+import passportController from "../controllers/passportController.js";
+import { authenticate, authorize } from "../middleware/authenticate.js";
+import {
+  filterAgentCandidates,
+  checkEditAccess,
+  checkDeleteAccess,
+} from "../middleware/rbac.js";
+import { validateZod } from "../validators/validateZod.js";
+import {
+  passportSchema,
+  passportUpdateSchema,
+} from "../validators/zod/passport.schema.js";
+import { sensitiveOperationRateLimiter } from "../middleware/rateLimiter.js";
+import { createDocumentUpload } from "../middleware/upload.js";
 
 const router = express.Router();
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(process.cwd(), 'uploads', 'passports');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${uuidv4()}${ext}`);
-  }
-});
-
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|pdf|webp/;
-  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedTypes.test(file.mimetype);
-
-  if (extname && mimetype) {
-    cb(null, true);
-  } else {
-    cb(new Error('Only image files (jpeg, jpg, png, webp) and PDF are allowed'), false);
-  }
-};
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter
-});
+const upload = createDocumentUpload("passports");
 
 router.use(authenticate);
 
-router.post('/', validateZod(passportSchema), filterAgentCandidates, passportController.createPassport);
-router.get('/', filterAgentCandidates, passportController.getPassports);
-router.get('/expiring', passportController.getExpiringPassports);
-router.get('/stats', passportController.getPassportStats);
-router.get('/:id', filterAgentCandidates, passportController.getPassportById);
-router.patch('/:id', validateZod(passportUpdateSchema), filterAgentCandidates, checkEditAccess, passportController.updatePassport);
-router.patch('/:id/status', sensitiveOperationRateLimiter, filterAgentCandidates, checkEditAccess, passportController.updatePassportStatus);
-router.post('/:id/ensure-candidate', filterAgentCandidates, passportController.ensureCandidate);
-router.delete('/:id', sensitiveOperationRateLimiter, checkDeleteAccess, passportController.deletePassport);
+router.post(
+  "/",
+  validateZod(passportSchema),
+  filterAgentCandidates,
+  passportController.createPassport,
+);
+router.get("/", filterAgentCandidates, passportController.getPassports);
+router.get("/expiring", passportController.getExpiringPassports);
+router.get("/stats", passportController.getPassportStats);
+router.get("/:id", filterAgentCandidates, passportController.getPassportById);
+router.patch(
+  "/:id",
+  validateZod(passportUpdateSchema),
+  filterAgentCandidates,
+  checkEditAccess,
+  passportController.updatePassport,
+);
+router.patch(
+  "/:id/status",
+  sensitiveOperationRateLimiter,
+  filterAgentCandidates,
+  checkEditAccess,
+  passportController.updatePassportStatus,
+);
+router.post(
+  "/:id/ensure-candidate",
+  filterAgentCandidates,
+  passportController.ensureCandidate,
+);
+router.delete(
+  "/:id",
+  sensitiveOperationRateLimiter,
+  checkDeleteAccess,
+  passportController.deletePassport,
+);
+router.post(
+  "/:id/restore",
+  sensitiveOperationRateLimiter,
+  checkDeleteAccess,
+  passportController.restorePassport,
+);
 
 export default router;

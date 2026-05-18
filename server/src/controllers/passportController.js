@@ -1,16 +1,21 @@
-import Passport from '../models/Passport.js';
-import PassportLog from '../models/PassportLog.js';
-import Candidate from '../models/Candidate.js';
-import { escapeRegex } from '../utils/escapeRegex.js';
-import { extractPassportData } from '../services/passportOcrService.js';
-import { adToBS } from '../utils/bsDate.js';
-import path from 'path';
-import fs from 'fs';
-import { scopeFilter, scopeData } from '../utils/tenantHelper.js';
-import asyncHandler from '../utils/asyncHandler.js';
-import { sanitizeFilename } from '../utils/fileSystemSanitize.js';
-import { deleteCloudinaryFile, getPublicIdFromUrl } from '../middleware/upload.js';
-import logger from '../config/logger.js';
+import Passport from "../models/Passport.js";
+import PassportLog from "../models/PassportLog.js";
+import Candidate from "../models/Candidate.js";
+import { escapeRegex } from "../utils/escapeRegex.js";
+import { extractPassportData } from "../services/passportOcrService.js";
+import { adToBS } from "../utils/bsDate.js";
+import path from "path";
+import fs from "fs";
+import { scopeFilter, scopeData } from "../utils/tenantHelper.js";
+import asyncHandler from "../utils/asyncHandler.js";
+import AppError from "../utils/AppError.js";
+import { buildCursorFilter, buildCursorPage } from "../utils/pagination.js";
+import { sanitizeFilename } from "../utils/fileSystemSanitize.js";
+import {
+  deleteCloudinaryFile,
+  getPublicIdFromUrl,
+} from "../middleware/upload.js";
+import logger from "../config/logger.js";
 
 const cleanupCloudinaryAssets = (urls) => {
   if (!urls || urls.length === 0) return;
@@ -19,13 +24,8 @@ const cleanupCloudinaryAssets = (urls) => {
       .filter(Boolean)
       .map(getPublicIdFromUrl)
       .filter(Boolean)
-      .map((publicId) => deleteCloudinaryFile(publicId))
-  ).catch((err) => logger.error('Cloudinary cleanup failed', err));
-};
-
-const parsePositiveInt = (value, fallback) => {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+      .map((publicId) => deleteCloudinaryFile(publicId)),
+  ).catch((err) => logger.error("Cloudinary cleanup failed", err));
 };
 
 const createPassport = asyncHandler(async (req, res) => {
@@ -44,34 +44,36 @@ const createPassport = asyncHandler(async (req, res) => {
     gender,
     desiredCountry,
     contactPhone,
-    contactAddress
+    contactAddress,
   } = req.body;
 
   const resolvedAgencyId = req.user.agencyId || req.body.agencyId;
   if (!resolvedAgencyId) {
-    return res.status(400).json({
-      message: 'Agency context is required. Superadmin must provide agencyId to create passport.'
-    });
+    throw new AppError(
+      "Agency context is required. Superadmin must provide agencyId to create passport.",
+      400,
+    );
   }
 
   if (!passportNumber || !fullName) {
-    return res.status(400).json({ message: 'passportNumber and fullName are required' });
+    throw new AppError("passportNumber and fullName are required", 400);
   }
 
   if (candidateId) {
-    const candidate = await Candidate.findOne(scopeFilter(req, { _id: candidateId }));
-    if (!candidate) {
-      return res.status(404).json({ message: 'Candidate not found' });
-    }
+    const candidate = await Candidate.findOne(
+      scopeFilter(req, { _id: candidateId }),
+    );
+    if (!candidate) throw new AppError("Candidate not found", 404);
   }
 
-  // Pre-creation check for duplicate (App-level)
-  const existingPassport = await Passport.findOne(scopeFilter(req, {
-    passportNumber
-  }));
-  if (existingPassport) {
-    return res.status(400).json({ message: 'Passport number already exists within this agency' });
-  }
+  const existingPassport = await Passport.findOne(
+    scopeFilter(req, { passportNumber }),
+  );
+  if (existingPassport)
+    throw new AppError(
+      "Passport number already exists within this agency",
+      409,
+    );
 
   const passportData = {
     agencyId: resolvedAgencyId,
@@ -91,9 +93,9 @@ const createPassport = asyncHandler(async (req, res) => {
     contactAddress: contactAddress || undefined,
     collectedBy: req.user.userId,
     collectedAt: new Date(),
-    custodyStatus: 'with_agency',
-    allocationStatus: candidateId ? 'allocated' : 'in_pool',
-    candidateId: candidateId || undefined
+    custodyStatus: "with_agency",
+    allocationStatus: candidateId ? "allocated" : "in_pool",
+    candidateId: candidateId || undefined,
   };
 
   if (candidateId) {
@@ -106,9 +108,11 @@ const createPassport = asyncHandler(async (req, res) => {
   try {
     passport = await Passport.create(scopeData(req, passportData));
   } catch (err) {
-    if (err.code === 11000) {
-      return res.status(400).json({ message: 'Passport number already exists within this agency' });
-    }
+    if (err.code === 11000)
+      throw new AppError(
+        "Passport number already exists within this agency",
+        409,
+      );
     throw err;
   }
 
@@ -122,25 +126,25 @@ const createPassport = asyncHandler(async (req, res) => {
       const setOnInsert = scopeData(req, {
         fullName: passport.fullName,
         dateOfBirth: passport.dateOfBirth,
-        gender: passport.gender || 'male',
+        gender: passport.gender || "male",
         nationalIdNumber: passport.passportNumber,
-        phone: passport.contactPhone || '',
+        phone: passport.contactPhone || "",
         passportId: passport._id,
         passportNumber: passport.passportNumber,
-        status: 'registered',
+        status: "registered",
         agentId: req.user.userId,
-        registeredAt: new Date()
+        registeredAt: new Date(),
       });
       const stubCandidate = await Candidate.findOneAndUpdate(
         scopeFilter(req, { passportId: passport._id }),
         { $setOnInsert: setOnInsert },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, new: true, setDefaultsOnInsert: true },
       );
       await Passport.findByIdAndUpdate(passport._id, {
-        $set: { candidateId: stubCandidate._id }
+        $set: { candidateId: stubCandidate._id },
       });
     } catch (err) {
-      logger.error('Failed to auto-create stub candidate for passport', err);
+      logger.error("Failed to auto-create stub candidate for passport", err);
       // Don't block passport creation — allocation can still create one later.
     }
   }
@@ -150,80 +154,68 @@ const createPassport = asyncHandler(async (req, res) => {
     passportId: passport._id,
     agencyId: resolvedAgencyId,
     performedBy: req.user.userId,
-    action: candidateId ? 'collected_with_candidate' : 'collected',
-    toStatus: candidateId ? 'allocated' : 'with_agency',
-    notes: candidateId ? 'Passport collected and linked to existing candidate' : 'Passport added to pool'
+    action: candidateId ? "collected_with_candidate" : "collected",
+    toStatus: candidateId ? "allocated" : "with_agency",
+    notes: candidateId
+      ? "Passport collected and linked to existing candidate"
+      : "Passport added to pool",
   });
 
   const populated = await Passport.findById(passport._id)
-    .populate('candidateId', 'fullName')
-    .populate('collectedBy', 'name');
+    .populate("candidateId", "fullName")
+    .populate("collectedBy", "name");
 
   res.status(201).json(populated);
 });
 
+const PASSPORT_LIST_POPULATE = [
+  {
+    path: "candidateId",
+    select:
+      "fullName phone email status nationalIdNumber permanentDistrict permanentMunicipality desiredCountry desiredJobCategory skills",
+  },
+  { path: "collectedBy", select: "name" },
+  {
+    path: "allocatedToDemandId",
+    select: "employerCompanyName employerCountry jobCategory",
+  },
+];
+
 const getPassports = asyncHandler(async (req, res) => {
-  const { status, search, limit = 20, allocationStatus, cursor } = req.query;
-  const limitNumber = parsePositiveInt(limit, 20);
+  const { status, search, allocationStatus } = req.query;
 
-  const filter = scopeFilter(req);
-
-  if (status) filter.custodyStatus = status;
-  if (allocationStatus) filter.allocationStatus = allocationStatus;
-
+  const baseFilter = scopeFilter(req);
+  if (status) baseFilter.custodyStatus = status;
+  if (allocationStatus) baseFilter.allocationStatus = allocationStatus;
   if (search) {
-    const searchRegex = new RegExp(escapeRegex(search), 'i');
-    filter.$or = [{ passportNumber: searchRegex }, { fullName: searchRegex }];
+    const searchRegex = new RegExp(escapeRegex(search), "i");
+    baseFilter.$or = [
+      { passportNumber: searchRegex },
+      { fullName: searchRegex },
+    ];
   }
 
-  // Cursor-based pagination: client sends ?cursor=<createdAt_iso>__<_id>
-  // Falls back to a single total-count offset query when cursor is absent (first page).
-  if (cursor) {
-    const [cursorDate, cursorId] = cursor.split('__');
-    const cursorCondition = {
-      $or: [
-        { createdAt: { $lt: new Date(cursorDate) } },
-        { createdAt: new Date(cursorDate), _id: { $lt: cursorId } }
-      ]
-    };
-    filter.$and = filter.$and ? [...filter.$and, cursorCondition] : [cursorCondition];
+  const { filter, limitNumber, hasCursor } = buildCursorFilter(
+    req.query,
+    baseFilter,
+  );
 
-    const results = await Passport.find(filter)
-      .sort({ createdAt: -1, _id: -1 })
-      .limit(limitNumber + 1)
-      .populate('candidateId', 'fullName phone email status nationalIdNumber permanentDistrict permanentMunicipality desiredCountry desiredJobCategory skills')
-      .populate('collectedBy', 'name')
-      .populate('allocatedToDemandId', 'employerCompanyName employerCountry jobCategory');
+  const fetchQuery = Passport.find(filter)
+    .sort({ createdAt: -1, _id: -1 })
+    .limit(limitNumber + 1)
+    .populate(PASSPORT_LIST_POPULATE);
 
-    const hasMore = results.length > limitNumber;
-    const page = results.slice(0, limitNumber);
-    const last = page[page.length - 1];
-    const nextCursor = hasMore && last
-      ? `${last.createdAt.toISOString()}__${last._id}`
-      : null;
-
-    return res.status(200).json({ data: page, nextCursor, hasMore });
+  if (hasCursor) {
+    const results = await fetchQuery;
+    return res.status(200).json(buildCursorPage(results, limitNumber));
   }
 
-  // First page — offset query + total count (no skip cost on page 1)
   const [passports, total] = await Promise.all([
-    Passport.find(filter)
-      .sort({ createdAt: -1, _id: -1 })
-      .limit(limitNumber + 1)
-      .populate('candidateId', 'fullName phone email status nationalIdNumber permanentDistrict permanentMunicipality desiredCountry desiredJobCategory skills')
-      .populate('collectedBy', 'name')
-      .populate('allocatedToDemandId', 'employerCompanyName employerCountry jobCategory'),
-    Passport.countDocuments(filter)
+    fetchQuery,
+    Passport.countDocuments(baseFilter),
   ]);
 
-  const hasMore = passports.length > limitNumber;
-  const page = passports.slice(0, limitNumber);
-  const last = page[page.length - 1];
-  const nextCursor = hasMore && last
-    ? `${last.createdAt.toISOString()}__${last._id}`
-    : null;
-
-  res.status(200).json({ data: page, total, nextCursor, hasMore });
+  res.status(200).json(buildCursorPage(passports, limitNumber, total));
 });
 
 const getPassportById = asyncHandler(async (req, res) => {
@@ -231,65 +223,99 @@ const getPassportById = asyncHandler(async (req, res) => {
   // hydration would otherwise strip fields like `physicalAttributes` and
   // `workHistory` when the on-disk subdoc shape doesn't perfectly match the
   // schema. Lean reads bypass that entirely.
-  const passport = await Passport.findOne(scopeFilter(req, {
-    _id: req.params.id
-  }))
-    .populate('candidateId', [
-      'fullName', 'phone', 'email', 'status', 'nationalIdNumber',
-      'gender', 'dateOfBirth', 'maritalStatus', 'religion',
-      'permanentProvince', 'permanentDistrict', 'permanentMunicipality', 'permanentWardNo',
-      'temporaryAddress', 'temporaryMunicipality', 'temporaryDistrict', 'temporaryProvince',
-      'bankInfo', 'training', 'academic', 'nomineeInfo',
-      'visaNumber', 'visaIssuedDate', 'visaReceivedDate', 'visaExpiryDate',
-      'kdnBpaNo', 'branchInfo', 'desiredCountry', 'desiredJobCategory', 'skills',
-      'physicalAttributes', 'workHistory',
-      'workExperienceYears', 'languagesKnown', 'education',
-    ].join(' '))
-    .populate('collectedBy', 'name')
-    .populate('returnedBy', 'name')
-    .populate('allocatedToDemandId', 'employerCompanyName employerCountry jobCategory')
+  const passport = await Passport.findOne(
+    scopeFilter(req, {
+      _id: req.params.id,
+    }),
+  )
+    .populate(
+      "candidateId",
+      [
+        "fullName",
+        "phone",
+        "email",
+        "status",
+        "nationalIdNumber",
+        "gender",
+        "dateOfBirth",
+        "maritalStatus",
+        "religion",
+        "permanentProvince",
+        "permanentDistrict",
+        "permanentMunicipality",
+        "permanentWardNo",
+        "temporaryAddress",
+        "temporaryMunicipality",
+        "temporaryDistrict",
+        "temporaryProvince",
+        "bankInfo",
+        "training",
+        "academic",
+        "nomineeInfo",
+        "visaNumber",
+        "visaIssuedDate",
+        "visaReceivedDate",
+        "visaExpiryDate",
+        "kdnBpaNo",
+        "branchInfo",
+        "desiredCountry",
+        "desiredJobCategory",
+        "skills",
+        "physicalAttributes",
+        "workHistory",
+        "workExperienceYears",
+        "languagesKnown",
+        "education",
+      ].join(" "),
+    )
+    .populate("collectedBy", "name")
+    .populate("returnedBy", "name")
+    .populate(
+      "allocatedToDemandId",
+      "employerCompanyName employerCountry jobCategory",
+    )
     .lean();
 
-  if (!passport) {
-    return res.status(404).json({ message: 'Passport not found' });
-  }
+  if (!passport) throw new AppError("Passport not found", 404);
 
   const logs = await PassportLog.find({ passportId: passport._id })
     .sort({ timestamp: -1 })
-    .populate('performedBy', 'name')
+    .populate("performedBy", "name")
     .lean();
 
   res.status(200).json({ passport, logs });
 });
 
 const updatePassportStatus = asyncHandler(async (req, res) => {
-  const { custodyStatus, notes, location, sponsorName, sponsorNumber, assignedStaff } = req.body;
+  const {
+    custodyStatus,
+    notes,
+    location,
+    sponsorName,
+    sponsorNumber,
+    assignedStaff,
+  } = req.body;
 
-  if (!custodyStatus) {
-    return res.status(400).json({ message: 'custodyStatus is required' });
-  }
+  if (!custodyStatus) throw new AppError("custodyStatus is required", 400);
 
-  const validTransitions = {
-    'with_agency': ['returned_to_candidate', 'submitted_embassy', 'lost'],
-    'returned_to_candidate': ['with_agency'],
-    'submitted_embassy': ['with_agency', 'lost'],
-    'lost': []
+  const VALID_TRANSITIONS = {
+    with_agency: ["returned_to_candidate", "submitted_embassy", "lost"],
+    returned_to_candidate: ["with_agency"],
+    submitted_embassy: ["with_agency", "lost"],
+    lost: [],
   };
 
-  const passport = await Passport.findOne(scopeFilter(req, {
-    _id: req.params.id
-  }));
-
-  if (!passport) {
-    return res.status(404).json({ message: 'Passport not found' });
-  }
+  const passport = await Passport.findOne(
+    scopeFilter(req, { _id: req.params.id }),
+  );
+  if (!passport) throw new AppError("Passport not found", 404);
 
   const currentStatus = passport.custodyStatus;
-
-  if (!validTransitions[currentStatus]?.includes(custodyStatus)) {
-    return res.status(400).json({
-      message: `Invalid status transition from ${currentStatus} to ${custodyStatus}`
-    });
+  if (!VALID_TRANSITIONS[currentStatus]?.includes(custodyStatus)) {
+    throw new AppError(
+      `Invalid status transition from ${currentStatus} to ${custodyStatus}`,
+      400,
+    );
   }
 
   const updateData = { custodyStatus };
@@ -299,7 +325,7 @@ const updatePassportStatus = asyncHandler(async (req, res) => {
   if (sponsorNumber !== undefined) updateData.sponsorNumber = sponsorNumber;
   if (assignedStaff !== undefined) updateData.assignedStaff = assignedStaff;
 
-  if (custodyStatus === 'returned_to_candidate') {
+  if (custodyStatus === "returned_to_candidate") {
     updateData.returnedBy = req.user.userId;
     updateData.returnedAt = new Date();
   }
@@ -307,23 +333,23 @@ const updatePassportStatus = asyncHandler(async (req, res) => {
   const updatedPassport = await Passport.findByIdAndUpdate(
     req.params.id,
     { $set: updateData },
-    { new: true, runValidators: true }
+    { new: true, runValidators: true },
   )
-    .populate('candidateId', 'fullName')
-    .populate('collectedBy', 'name')
-    .populate('returnedBy', 'name');
+    .populate("candidateId", "fullName")
+    .populate("collectedBy", "name")
+    .populate("returnedBy", "name");
 
   await PassportLog.create({
     passportId: passport._id,
     agencyId: req.user.agencyId,
     performedBy: req.user.userId,
-    action: 'status_changed',
+    action: "status_changed",
     fromStatus: currentStatus,
     toStatus: custodyStatus,
     notes,
     sponsorName,
     sponsorNumber,
-    assignedStaff
+    assignedStaff,
   });
 
   res.status(200).json(updatedPassport);
@@ -341,26 +367,21 @@ const updatePassport = asyncHandler(async (req, res) => {
     location,
     notes,
     contactPhone,
-    gender
+    gender,
   } = req.body;
 
-  const passport = await Passport.findOne(scopeFilter(req, {
-    _id: req.params.id
-  }));
-
-  if (!passport) {
-    return res.status(404).json({ message: 'Passport not found' });
-  }
+  const passport = await Passport.findOne(
+    scopeFilter(req, { _id: req.params.id }),
+  );
+  if (!passport) throw new AppError("Passport not found", 404);
 
   if (passportNumber && passportNumber !== passport.passportNumber) {
     const existing = await Passport.findOne({
       agencyId: req.user.agencyId,
       passportNumber,
-      _id: { $ne: passport._id }
+      _id: { $ne: passport._id },
     });
-    if (existing) {
-      return res.status(400).json({ message: 'Passport number already exists' });
-    }
+    if (existing) throw new AppError("Passport number already exists", 409);
   }
 
   const updates = {};
@@ -381,21 +402,20 @@ const updatePassport = asyncHandler(async (req, res) => {
     updatedPassport = await Passport.findByIdAndUpdate(
       req.params.id,
       { $set: updates },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     )
-      .populate('candidateId', 'fullName')
-      .populate('collectedBy', 'name')
-      .populate('returnedBy', 'name');
+      .populate("candidateId", "fullName")
+      .populate("collectedBy", "name")
+      .populate("returnedBy", "name");
   } catch (err) {
-    if (err.code === 11000) {
-      return res.status(400).json({ message: 'Passport number already exists' });
-    }
+    if (err.code === 11000)
+      throw new AppError("Passport number already exists", 409);
     throw err;
   }
 
   const changes = [];
   for (const key in updates) {
-    if (key !== 'notes' && key !== 'location') {
+    if (key !== "notes" && key !== "location") {
       if (passport[key]?.toString() !== updates[key]?.toString()) {
         changes.push(`${key} modified`);
       }
@@ -406,51 +426,103 @@ const updatePassport = asyncHandler(async (req, res) => {
     passportId: passport._id,
     agencyId: req.user.agencyId,
     performedBy: req.user.userId,
-    action: 'edited',
-    notes: changes.length > 0 ? changes.join(', ') : notes || 'Details updated'
+    action: "edited",
+    notes: changes.length > 0 ? changes.join(", ") : notes || "Details updated",
   });
 
   res.status(200).json(updatedPassport);
 });
 
 const deletePassport = asyncHandler(async (req, res) => {
-  if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
-    return res.status(403).json({ message: 'Only admin can delete passports' });
+  if (req.user.role !== "admin" && req.user.role !== "superadmin") {
+    throw new AppError("Only admin can delete passports", 403);
   }
 
-  const passport = await Passport.findOne(scopeFilter(req, {
-    _id: req.params.id
-  }));
+  const passport = await Passport.findOne(
+    scopeFilter(req, { _id: req.params.id }),
+  );
+  if (!passport) throw new AppError("Passport not found", 404);
 
-  if (!passport) {
-    return res.status(404).json({ message: 'Passport not found' });
+  // Soft-delete — Cloudinary assets and logs are purged after 7-day recovery window
+  // by the background cleanup job (server/src/jobs/passportCleanupJob.js).
+  await Passport.findByIdAndUpdate(req.params.id, {
+    $set: {
+      isDeleted: true,
+      deletedAt: new Date(),
+      deletedBy: req.user.userId,
+    },
+  });
+
+  await PassportLog.create({
+    passportId: passport._id,
+    agencyId: req.user.agencyId || passport.agencyId,
+    performedBy: req.user.userId,
+    action: "deleted",
+    notes: "Passport soft-deleted — recoverable within 7 days",
+  });
+
+  res
+    .status(200)
+    .json({ message: "Passport deleted. It can be recovered within 7 days." });
+});
+
+const restorePassport = asyncHandler(async (req, res) => {
+  if (req.user.role !== "admin" && req.user.role !== "superadmin") {
+    throw new AppError("Only admin can restore passports", 403);
   }
 
-  // Cascading cleanup
-  const fileUrlsToClean = [passport.scannedImageUrl].filter(Boolean);
-  await Promise.all([
-    Passport.findByIdAndDelete(req.params.id),
-    PassportLog.deleteMany({ passportId: req.params.id })
-  ]);
+  const passport = await Passport.findOne(
+    scopeFilter(req, { _id: req.params.id, isDeleted: true }),
+  );
+  if (!passport)
+    throw new AppError(
+      "Deleted passport not found or recovery window has expired",
+      404,
+    );
 
-  cleanupCloudinaryAssets(fileUrlsToClean);
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  if (passport.deletedAt < sevenDaysAgo) {
+    throw new AppError("Recovery window has expired (7 days)", 410);
+  }
 
-  res.status(200).json({ message: 'Passport deleted successfully' });
+  await Passport.findByIdAndUpdate(req.params.id, {
+    $set: { isDeleted: false, deletedAt: null, deletedBy: null },
+  });
+
+  await PassportLog.create({
+    passportId: passport._id,
+    agencyId: req.user.agencyId || passport.agencyId,
+    performedBy: req.user.userId,
+    action: "restored",
+    notes: "Passport restored from soft-delete",
+  });
+
+  res.status(200).json({ message: "Passport restored successfully" });
 });
 
 const getPassportStats = asyncHandler(async (req, res) => {
   const stats = await Passport.aggregate([
-    { $match: scopeFilter(req) },
+    { $match: { ...scopeFilter(req), isDeleted: { $ne: true } } },
     {
       $group: {
         _id: null,
         total: { $sum: 1 },
-        inPool: { $sum: { $cond: [{ $eq: ['$allocationStatus', 'in_pool'] }, 1, 0] } },
-        allocated: { $sum: { $cond: [{ $eq: ['$allocationStatus', 'allocated'] }, 1, 0] } },
-        withAgency: { $sum: { $cond: [{ $eq: ['$custodyStatus', 'with_agency'] }, 1, 0] } },
-        returned: { $sum: { $cond: [{ $eq: ['$custodyStatus', 'returned_to_candidate'] }, 1, 0] } }
-      }
-    }
+        inPool: {
+          $sum: { $cond: [{ $eq: ["$allocationStatus", "in_pool"] }, 1, 0] },
+        },
+        allocated: {
+          $sum: { $cond: [{ $eq: ["$allocationStatus", "allocated"] }, 1, 0] },
+        },
+        withAgency: {
+          $sum: { $cond: [{ $eq: ["$custodyStatus", "with_agency"] }, 1, 0] },
+        },
+        returned: {
+          $sum: {
+            $cond: [{ $eq: ["$custodyStatus", "returned_to_candidate"] }, 1, 0],
+          },
+        },
+      },
+    },
   ]);
 
   const result = stats[0] || {
@@ -458,7 +530,7 @@ const getPassportStats = asyncHandler(async (req, res) => {
     inPool: 0,
     allocated: 0,
     withAgency: 0,
-    returned: 0
+    returned: 0,
   };
 
   delete result._id;
@@ -469,26 +541,26 @@ const getExpiringPassports = asyncHandler(async (req, res) => {
   const sixtyDaysFromNow = new Date();
   sixtyDaysFromNow.setDate(sixtyDaysFromNow.getDate() + 60);
 
-  const passports = await Passport.find(scopeFilter(req, {
-    expiryDate: { $lte: sixtyDaysFromNow },
-    custodyStatus: 'with_agency'
-  }))
+  const passports = await Passport.find(
+    scopeFilter(req, {
+      expiryDate: { $lte: sixtyDaysFromNow },
+      custodyStatus: "with_agency",
+    }),
+  )
     .sort({ expiryDate: 1 })
-    .populate('candidateId', 'fullName phone')
-    .populate('collectedBy', 'name');
+    .populate("candidateId", "fullName phone")
+    .populate("collectedBy", "name");
 
   res.status(200).json(passports);
 });
 
 const scanPassport = asyncHandler(async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ message: 'No image file uploaded' });
-  }
+  if (!req.file) throw new AppError("No image file uploaded", 400);
 
   let imageBuffer;
   if (req.file.buffer) {
     imageBuffer = req.file.buffer;
-  } else if (req.file.path && !req.file.path.startsWith('http')) {
+  } else if (req.file.path && !req.file.path.startsWith("http")) {
     imageBuffer = fs.readFileSync(req.file.path);
   } else {
     const url = req.file.location || req.file.path;
@@ -505,11 +577,11 @@ const scanPassport = asyncHandler(async (req, res) => {
   let scannedImageUrl = null;
   if (req.file.location) {
     scannedImageUrl = req.file.location;
-  } else if (req.file.path && req.file.path.startsWith('http')) {
+  } else if (req.file.path && req.file.path.startsWith("http")) {
     scannedImageUrl = req.file.path;
   } else if (req.file.path) {
     const safeFilename = sanitizeFilename(path.basename(req.file.path));
-    scannedImageUrl = `${process.env.API_BASE_URL || 'http://localhost:5000'}/uploads/passports/scans/${safeFilename}`;
+    scannedImageUrl = `${process.env.API_BASE_URL || "http://localhost:5000"}/uploads/passports/scans/${safeFilename}`;
   }
 
   const formatDateDisplay = (date) => {
@@ -522,24 +594,30 @@ const scanPassport = asyncHandler(async (req, res) => {
     success: true,
     scannedImageUrl,
     extractedData: {
-      passportNumber: extractedData.passportNumber || '',
-      guardianNumber: extractedData.guardianNumber || '',
-      fullName: extractedData.fullName || '',
-      surname: extractedData.surname || '',
-      givenNames: extractedData.givenNames || '',
-      dateOfBirth: isValidDate(extractedData.dateOfBirth) ? extractedData.dateOfBirth.toISOString() : null,
+      passportNumber: extractedData.passportNumber || "",
+      guardianNumber: extractedData.guardianNumber || "",
+      fullName: extractedData.fullName || "",
+      surname: extractedData.surname || "",
+      givenNames: extractedData.givenNames || "",
+      dateOfBirth: isValidDate(extractedData.dateOfBirth)
+        ? extractedData.dateOfBirth.toISOString()
+        : null,
       dateOfBirthBS: formatDateDisplay(extractedData.dateOfBirth),
-      gender: extractedData.gender || '',
-      issueDate: isValidDate(extractedData.issueDate) ? extractedData.issueDate.toISOString() : null,
+      gender: extractedData.gender || "",
+      issueDate: isValidDate(extractedData.issueDate)
+        ? extractedData.issueDate.toISOString()
+        : null,
       issueDateBS: formatDateDisplay(extractedData.issueDate),
-      expiryDate: isValidDate(extractedData.expiryDate) ? extractedData.expiryDate.toISOString() : null,
+      expiryDate: isValidDate(extractedData.expiryDate)
+        ? extractedData.expiryDate.toISOString()
+        : null,
       expiryDateBS: formatDateDisplay(extractedData.expiryDate),
-      issuedDistrict: extractedData.issuedDistrict || '',
-      nationality: extractedData.nationality || 'NPL'
+      issuedDistrict: extractedData.issuedDistrict || "",
+      nationality: extractedData.nationality || "NPL",
     },
     confidence: extractedData.confidence || {},
     warnings: extractedData.warnings || [],
-    source: extractedData.source || 'unknown'
+    source: extractedData.source || "unknown",
   });
 });
 
@@ -547,31 +625,57 @@ const scanPassport = asyncHandler(async (req, res) => {
 // already exist, then returns the fully populated passport. Used by the UI to
 // enable profile-section editing for pool passports before demand allocation.
 const ensureCandidate = asyncHandler(async (req, res) => {
-  const passport = await Passport.findOne(scopeFilter(req, { _id: req.params.id }));
-  if (!passport) return res.status(404).json({ message: 'Passport not found' });
+  const passport = await Passport.findOne(
+    scopeFilter(req, { _id: req.params.id }),
+  );
+  if (!passport) throw new AppError("Passport not found", 404);
 
   const CANDIDATE_POPULATE_FIELDS = [
-    'fullName', 'phone', 'email', 'status', 'nationalIdNumber',
-    'gender', 'dateOfBirth', 'maritalStatus', 'religion',
-    'permanentProvince', 'permanentDistrict', 'permanentMunicipality', 'permanentWardNo',
-    'temporaryAddress', 'temporaryMunicipality', 'temporaryDistrict', 'temporaryProvince',
-    'bankInfo', 'training', 'academic', 'nomineeInfo',
-    'visaNumber', 'visaIssuedDate', 'visaReceivedDate', 'visaExpiryDate',
-    'kdnBpaNo', 'branchInfo', 'desiredCountry', 'desiredJobCategory', 'skills',
-    'physicalAttributes', 'workHistory',
-  ].join(' ');
+    "fullName",
+    "phone",
+    "email",
+    "status",
+    "nationalIdNumber",
+    "gender",
+    "dateOfBirth",
+    "maritalStatus",
+    "religion",
+    "permanentProvince",
+    "permanentDistrict",
+    "permanentMunicipality",
+    "permanentWardNo",
+    "temporaryAddress",
+    "temporaryMunicipality",
+    "temporaryDistrict",
+    "temporaryProvince",
+    "bankInfo",
+    "training",
+    "academic",
+    "nomineeInfo",
+    "visaNumber",
+    "visaIssuedDate",
+    "visaReceivedDate",
+    "visaExpiryDate",
+    "kdnBpaNo",
+    "branchInfo",
+    "desiredCountry",
+    "desiredJobCategory",
+    "skills",
+    "physicalAttributes",
+    "workHistory",
+  ].join(" ");
 
   const setOnInsert = scopeData(req, {
     fullName: passport.fullName,
     dateOfBirth: passport.dateOfBirth,
-    gender: passport.gender || 'male',
+    gender: passport.gender || "male",
     nationalIdNumber: passport.passportNumber,
-    phone: passport.contactPhone || '',
+    phone: passport.contactPhone || "",
     passportId: passport._id,
     passportNumber: passport.passportNumber,
-    status: 'registered',
+    status: "registered",
     agentId: req.user.userId,
-    registeredAt: new Date()
+    registeredAt: new Date(),
   });
 
   // Atomic upsert — concurrent requests for the same passportId will hit the
@@ -579,12 +683,14 @@ const ensureCandidate = asyncHandler(async (req, res) => {
   const stub = await Candidate.findOneAndUpdate(
     scopeFilter(req, { passportId: passport._id }),
     { $setOnInsert: setOnInsert },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
+    { upsert: true, new: true, setDefaultsOnInsert: true },
   );
-  await Passport.findByIdAndUpdate(passport._id, { $set: { candidateId: stub._id } });
+  await Passport.findByIdAndUpdate(passport._id, {
+    $set: { candidateId: stub._id },
+  });
 
   const populated = await Passport.findById(passport._id)
-    .populate('candidateId', CANDIDATE_POPULATE_FIELDS)
+    .populate("candidateId", CANDIDATE_POPULATE_FIELDS)
     .lean();
 
   res.status(201).json(populated);
@@ -597,8 +703,9 @@ export default {
   updatePassportStatus,
   updatePassport,
   deletePassport,
+  restorePassport,
   getExpiringPassports,
   getPassportStats,
   scanPassport,
-  ensureCandidate
+  ensureCandidate,
 };
