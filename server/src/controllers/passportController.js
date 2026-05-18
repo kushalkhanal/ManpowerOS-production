@@ -163,46 +163,67 @@ const createPassport = asyncHandler(async (req, res) => {
 });
 
 const getPassports = asyncHandler(async (req, res) => {
-  const { status, search, page = 1, limit = 20, allocationStatus } = req.query;
-  const pageNumber = parsePositiveInt(page, 1);
+  const { status, search, limit = 20, allocationStatus, cursor } = req.query;
   const limitNumber = parsePositiveInt(limit, 20);
-  const skip = (pageNumber - 1) * limitNumber;
 
   const filter = scopeFilter(req);
 
-  if (status) {
-    filter.custodyStatus = status;
-  }
-
-  if (allocationStatus) {
-    filter.allocationStatus = allocationStatus;
-  }
+  if (status) filter.custodyStatus = status;
+  if (allocationStatus) filter.allocationStatus = allocationStatus;
 
   if (search) {
     const searchRegex = new RegExp(escapeRegex(search), 'i');
-    filter.$or = [
-      { passportNumber: searchRegex },
-      { fullName: searchRegex }
-    ];
+    filter.$or = [{ passportNumber: searchRegex }, { fullName: searchRegex }];
   }
 
+  // Cursor-based pagination: client sends ?cursor=<createdAt_iso>__<_id>
+  // Falls back to a single total-count offset query when cursor is absent (first page).
+  if (cursor) {
+    const [cursorDate, cursorId] = cursor.split('__');
+    const cursorCondition = {
+      $or: [
+        { createdAt: { $lt: new Date(cursorDate) } },
+        { createdAt: new Date(cursorDate), _id: { $lt: cursorId } }
+      ]
+    };
+    filter.$and = filter.$and ? [...filter.$and, cursorCondition] : [cursorCondition];
+
+    const results = await Passport.find(filter)
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(limitNumber + 1)
+      .populate('candidateId', 'fullName phone email status nationalIdNumber permanentDistrict permanentMunicipality desiredCountry desiredJobCategory skills')
+      .populate('collectedBy', 'name')
+      .populate('allocatedToDemandId', 'employerCompanyName employerCountry jobCategory');
+
+    const hasMore = results.length > limitNumber;
+    const page = results.slice(0, limitNumber);
+    const last = page[page.length - 1];
+    const nextCursor = hasMore && last
+      ? `${last.createdAt.toISOString()}__${last._id}`
+      : null;
+
+    return res.status(200).json({ data: page, nextCursor, hasMore });
+  }
+
+  // First page — offset query + total count (no skip cost on page 1)
   const [passports, total] = await Promise.all([
     Passport.find(filter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitNumber)
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(limitNumber + 1)
       .populate('candidateId', 'fullName phone email status nationalIdNumber permanentDistrict permanentMunicipality desiredCountry desiredJobCategory skills')
       .populate('collectedBy', 'name')
       .populate('allocatedToDemandId', 'employerCompanyName employerCountry jobCategory'),
     Passport.countDocuments(filter)
   ]);
 
-  res.status(200).json({
-    data: passports,
-    total,
-    page: pageNumber,
-    pages: Math.ceil(total / limitNumber)
-  });
+  const hasMore = passports.length > limitNumber;
+  const page = passports.slice(0, limitNumber);
+  const last = page[page.length - 1];
+  const nextCursor = hasMore && last
+    ? `${last.createdAt.toISOString()}__${last._id}`
+    : null;
+
+  res.status(200).json({ data: page, total, nextCursor, hasMore });
 });
 
 const getPassportById = asyncHandler(async (req, res) => {

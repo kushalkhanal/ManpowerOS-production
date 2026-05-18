@@ -6,18 +6,20 @@ export function usePassports() {
   const [passports, setPassports] = useState([]);
   const [currentPassport, setCurrentPassport] = useState(null);
   const [expiringPassports, setExpiringPassports] = useState([]);
-  const [pagination, setPagination] = useState({ total: 0, page: 1, pages: 1 });
+  const [pagination, setPagination] = useState({ total: 0, nextCursor: null, hasMore: false });
   const { loading, error, execute } = useAsyncState();
 
-  const getPassports = useCallback((params = {}) =>
+  // append=true → load-more (cursor), append=false → fresh filter/search (reset list)
+  const getPassports = useCallback((params = {}, append = false) =>
     execute(async () => {
-      const response = await passportApi.getAll({ page: 1, limit: 20, ...params });
-      setPassports(response.data.data);
-      setPagination({
-        total: response.data.total,
-        page: response.data.page,
-        pages: response.data.pages,
-      });
+      const response = await passportApi.getAll({ limit: 20, ...params });
+      const { data, total, nextCursor, hasMore } = response.data;
+      if (append) {
+        setPassports(prev => [...prev, ...data]);
+      } else {
+        setPassports(data);
+      }
+      setPagination({ total: total ?? 0, nextCursor: nextCursor ?? null, hasMore: hasMore ?? false });
       return response.data;
     }, 'Failed to fetch passports'),
   [execute]);

@@ -3,7 +3,6 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { usePassports } from "../hooks/usePassports";
 import AddPassportModal from "../components/AddPassportModal";
 import AllocationModal from "../components/AllocationModal";
-import Pagination from "../components/ui/Pagination";
 import { NEPAL_DISTRICTS } from "../utils/nepalDistricts";
 import { ConfirmDialog } from "../components/ui";
 import { showToast } from "../components/ToastProvider";
@@ -21,6 +20,7 @@ import {
   ChevronDown,
   SlidersHorizontal,
   FileText,
+  Loader2,
 } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -244,7 +244,6 @@ const PassportList = () => {
     gender: searchParams.get("gender") || "",
     district: searchParams.get("district") || "",
     passportValidMonths: searchParams.get("passportValidMonths") || "",
-    page: Math.max(1, Number(searchParams.get("page")) || 1),
   });
 
   const addMenuRef = useRef(null);
@@ -258,7 +257,7 @@ const PassportList = () => {
   const [expiringCount, setExpiringCount] = useState(0);
   const [expiringList, setExpiringList] = useState(null); // null = use hook list; array = override for Expiring tab
 
-  // Load passports whenever qs changes
+  // Load passports whenever filters change (always a fresh fetch — cursor reset)
   useEffect(() => {
     const tab = FILTER_TABS.find((t) => t.key === qs.tab) || FILTER_TABS[0];
     if (tab.expiring) {
@@ -268,7 +267,6 @@ const PassportList = () => {
     } else {
       setExpiringList(null);
       getPassports({
-        page: qs.page,
         limit: PAGE_SIZE,
         search: qs.search || undefined,
         allocationStatus: tab.allocationStatus || undefined,
@@ -285,7 +283,6 @@ const PassportList = () => {
     if (qs.gender) p.gender = qs.gender;
     if (qs.district) p.district = qs.district;
     if (qs.passportValidMonths) p.passportValidMonths = qs.passportValidMonths;
-    if (qs.page > 1) p.page = String(qs.page);
     setSearchParams(p, { replace: true });
   }, [qs]);
 
@@ -308,7 +305,22 @@ const PassportList = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [addMenuOpen]);
 
-  const patch = (changes) => setQs((q) => ({ ...q, ...changes, page: 1 }));
+  const patch = (changes) => setQs((q) => ({ ...q, ...changes }));
+
+  const loadMore = useCallback(() => {
+    if (!pagination.nextCursor || loading) return;
+    const tab = FILTER_TABS.find((t) => t.key === qs.tab) || FILTER_TABS[0];
+    getPassports({
+      limit: PAGE_SIZE,
+      cursor: pagination.nextCursor,
+      search: qs.search || undefined,
+      allocationStatus: tab.allocationStatus || undefined,
+      status: tab.status || undefined,
+      gender: qs.gender || undefined,
+      district: qs.district || undefined,
+      passportValidMonths: qs.passportValidMonths || undefined,
+    }, true);
+  }, [pagination.nextCursor, loading, qs, getPassports]);
 
   const handleDelete = (id) => setDeleteTargetId(id);
   const confirmDelete = async () => {
@@ -316,7 +328,7 @@ const PassportList = () => {
     try {
       await deletePassport(deleteTargetId);
       setDeleteTargetId(null);
-      setQs((q) => ({ ...q })); // re-trigger effect
+      setQs((q) => ({ ...q }));
     } catch (err) {
       showToast.error(
         err.response?.data?.message || "Failed to delete passport",
@@ -537,15 +549,19 @@ const PassportList = () => {
               </div>
             )}
 
-            {!isExpiringTab && pagination?.pages > 1 && (
-              <div className="mt-4">
-                <Pagination
-                  page={qs.page}
-                  pages={pagination.pages}
-                  total={pagination.total}
-                  pageSize={PAGE_SIZE}
-                  onPageChange={(p) => setQs((q) => ({ ...q, page: p }))}
-                />
+            {!isExpiringTab && pagination.hasMore && (
+              <div className="mt-4 flex justify-center">
+                <button
+                  onClick={loadMore}
+                  disabled={loading}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loading ? (
+                    <><Loader2 size={14} className="animate-spin" /> Loading…</>
+                  ) : (
+                    'Load more'
+                  )}
+                </button>
               </div>
             )}
           </>
