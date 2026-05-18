@@ -120,11 +120,6 @@ export const STAGE_DEFINITIONS = Object.freeze([
     optional: true
   },
   {
-    id: STAGE.DOCUMENTATION,
-    label: 'Documentation',
-    statuses: [STATUS.PASSPORT_PENDING, STATUS.PASSPORT_COLLECTED, STATUS.DOCUMENTS_COMPLETE]
-  },
-  {
     id: STAGE.MEDICAL,
     label: 'Medical Examination',
     statuses: [
@@ -150,6 +145,11 @@ export const STAGE_DEFINITIONS = Object.freeze([
       STATUS.WELFARE_DONE,
       STATUS.COMPLIANCE_COMPLETE
     ]
+  },
+  {
+    id: STAGE.DOCUMENTATION,
+    label: 'Documentation',
+    statuses: [STATUS.PASSPORT_PENDING, STATUS.PASSPORT_COLLECTED, STATUS.DOCUMENTS_COMPLETE]
   },
   {
     id: STAGE.ORIENTATION,

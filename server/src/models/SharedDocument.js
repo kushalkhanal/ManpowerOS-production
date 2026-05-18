@@ -24,7 +24,12 @@ const sharedDocumentSchema = new mongoose.Schema({
   orientationFile: { url: String, uploadedAt: Date },
   photoFile: { url: String, uploadedAt: Date },
   mrpFile: { url: String, uploadedAt: Date },
-  financialFile: { url: String, uploadedAt: Date }
+  financialFile: { url: String, uploadedAt: Date },
+  citizenshipFile: { url: String, uploadedAt: Date },
+  pccFile: { url: String, uploadedAt: Date },
+  biodataFile: { url: String, uploadedAt: Date },
+  contractFile: { url: String, uploadedAt: Date },
+  insuranceCopyFile: { url: String, uploadedAt: Date }
 }, {
   timestamps: true
 });

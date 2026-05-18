@@ -50,6 +50,36 @@ const DOCUMENT_TYPES = [
     label: 'Financial Doc',
     icon: '💰',
     accept: 'image/*,application/pdf'
+  },
+  {
+    key: 'citizenship',
+    label: 'Citizenship Copy',
+    icon: '🪪',
+    accept: 'image/*,application/pdf'
+  },
+  {
+    key: 'pcc',
+    label: 'Police Clearance',
+    icon: '🚔',
+    accept: 'image/*,application/pdf'
+  },
+  {
+    key: 'biodata',
+    label: 'Bio-data Form',
+    icon: '📝',
+    accept: 'image/*,application/pdf'
+  },
+  {
+    key: 'contract',
+    label: 'Employment Contract',
+    icon: '📃',
+    accept: 'image/*,application/pdf'
+  },
+  {
+    key: 'insuranceCopy',
+    label: 'Insurance Card',
+    icon: '🛡️',
+    accept: 'image/*,application/pdf'
   }
 ];
 

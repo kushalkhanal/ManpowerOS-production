@@ -105,13 +105,6 @@ export const STAGE_DEFINITIONS = Object.freeze([
     statuses: [STATUS.TRADE_TEST_SCHEDULED, STATUS.TRADE_TEST_PASSED, STATUS.TRADE_TEST_FAILED]
   },
   {
-    id: STAGE.DOCUMENTATION,
-    label: 'Documentation',
-    icon: 'FolderOpen',
-    color: 'violet',
-    statuses: [STATUS.PASSPORT_PENDING, STATUS.PASSPORT_COLLECTED, STATUS.DOCUMENTS_COMPLETE]
-  },
-  {
     id: STAGE.MEDICAL,
     label: 'Medical Examination',
     icon: 'Stethoscope',
@@ -143,6 +136,13 @@ export const STAGE_DEFINITIONS = Object.freeze([
       STATUS.WELFARE_DONE,
       STATUS.COMPLIANCE_COMPLETE
     ]
+  },
+  {
+    id: STAGE.DOCUMENTATION,
+    label: 'Documentation',
+    icon: 'FolderOpen',
+    color: 'violet',
+    statuses: [STATUS.PASSPORT_PENDING, STATUS.PASSPORT_COLLECTED, STATUS.DOCUMENTS_COMPLETE]
   },
   {
     id: STAGE.ORIENTATION,
