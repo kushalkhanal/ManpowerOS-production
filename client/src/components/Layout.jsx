@@ -25,7 +25,8 @@ import {
   Sun,
   Tag,
   Stethoscope,
-  GraduationCap
+  GraduationCap,
+  PlaneTakeoff
 } from 'lucide-react';
 
 const Layout = ({ children }) => {
@@ -90,6 +91,7 @@ const Layout = ({ children }) => {
         { name: 'Passport Pool', href: '/passports',          icon: BookOpen },
         { name: 'Sponsors',      href: '/directory/sponsors', icon: Building2 },
         { name: 'Documents',     href: '/documents',          icon: FileText },
+        { name: 'Departed',      href: '/departed',           icon: PlaneTakeoff },
       ],
     },
     {
