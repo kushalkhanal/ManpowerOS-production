@@ -1,10 +1,10 @@
-import JobDemand from '../models/JobDemand.js';
-import Candidate, { NEPAL_DISTRICTS_LIST } from '../models/Candidate.js';
-import Passport from '../models/Passport.js';
-import asyncHandler from '../utils/asyncHandler.js';
-import { computeAndSaveCandidateStatus } from '../services/candidateStatusService.js';
-import { scopeFilter, scopeData } from '../utils/tenantHelper.js';
-import logger from '../config/logger.js';
+import JobDemand from "../models/JobDemand.js";
+import Candidate, { NEPAL_DISTRICTS_LIST } from "../models/Candidate.js";
+import Passport from "../models/Passport.js";
+import asyncHandler from "../utils/asyncHandler.js";
+import { computeAndSaveCandidateStatus } from "../services/candidateStatusService.js";
+import { scopeFilter, scopeData } from "../utils/tenantHelper.js";
+import logger from "../config/logger.js";
 
 // Some legacy passport records carry typo'd district names (e.g.
 // "Sindhupalachok" with an extra 'a' instead of the canonical
@@ -13,16 +13,16 @@ import logger from '../config/logger.js';
 // during allocation would otherwise fail validation. Map known typo variants
 // to the canonical name; drop the field entirely if we can't match.
 const DISTRICT_ALIAS_MAP = {
-  'sindhupalachok': 'Sindhupalchok',
-  'sindupalchok':   'Sindhupalchok',
-  'kavre':          'Kavrepalanchok',
-  'kavrepalanchowk':'Kavrepalanchok',
-  'newalparasi':    'Nawalparasi',
-  'rukum':          'Rolpa', // ambiguous; drop or pick best — Rolpa neighbours both Rukum E/W
+  sindhupalachok: "Sindhupalchok",
+  sindupalchok: "Sindhupalchok",
+  kavre: "Kavrepalanchok",
+  kavrepalanchowk: "Kavrepalanchok",
+  newalparasi: "Nawalparasi",
+  rukum: "Rolpa", // ambiguous; drop or pick best — Rolpa neighbours both Rukum E/W
 };
 
 const sanitizeDistrict = (raw) => {
-  if (!raw || typeof raw !== 'string') return undefined;
+  if (!raw || typeof raw !== "string") return undefined;
   const trimmed = raw.trim();
   if (!trimmed) return undefined;
   // Exact match against the canonical enum
@@ -40,15 +40,37 @@ const sanitizeDistrict = (raw) => {
 
 const createDemand = asyncHandler(async (req, res) => {
   const {
-    employerCompanyName, shortCompanyCode, employerCountry, employerCity, employerContactPerson,
-    employerPhone, employerEmail, demandLetterNumber, lotNumber, demandLetterDate,
-    demandLetterExpiryDate, jobCategory, totalPositions, basicSalaryUSD,
-    accommodationProvided, foodProvided, contractDurationMonths, workingHoursPerDay,
-    purbaSwukritiNumber, purbaSwukritiDate, purbaSwukritiExpiryDate, notes
+    employerCompanyName,
+    shortCompanyCode,
+    employerCountry,
+    employerCity,
+    employerContactPerson,
+    employerPhone,
+    employerEmail,
+    demandLetterNumber,
+    lotNumber,
+    demandLetterDate,
+    demandLetterExpiryDate,
+    jobCategory,
+    totalPositions,
+    basicSalaryUSD,
+    accommodationProvided,
+    foodProvided,
+    contractDurationMonths,
+    workingHoursPerDay,
+    purbaSwukritiNumber,
+    purbaSwukritiDate,
+    purbaSwukritiExpiryDate,
+    notes,
   } = req.body;
 
-  if (!employerCompanyName || !employerCountry || !totalPositions || !lotNumber) {
-    return res.status(400).json({ message: 'Required fields are missing' });
+  if (
+    !employerCompanyName ||
+    !employerCountry ||
+    !totalPositions ||
+    !lotNumber
+  ) {
+    return res.status(400).json({ message: "Required fields are missing" });
   }
 
   const files = req.files || {};
@@ -56,17 +78,33 @@ const createDemand = asyncHandler(async (req, res) => {
 
   const demand = await JobDemand.create({
     agencyId: req.user.agencyId,
-    employerCompanyName, shortCompanyCode, employerCountry, employerCity, employerContactPerson,
-    employerPhone, employerEmail, demandLetterNumber, lotNumber, demandLetterDate,
-    demandLetterExpiryDate, jobCategory, totalPositions,
-    basicSalaryUSD, accommodationProvided, foodProvided,
-    contractDurationMonths, workingHoursPerDay, purbaSwukritiNumber,
-    purbaSwukritiDate, purbaSwukritiExpiryDate, notes,
+    employerCompanyName,
+    shortCompanyCode,
+    employerCountry,
+    employerCity,
+    employerContactPerson,
+    employerPhone,
+    employerEmail,
+    demandLetterNumber,
+    lotNumber,
+    demandLetterDate,
+    demandLetterExpiryDate,
+    jobCategory,
+    totalPositions,
+    basicSalaryUSD,
+    accommodationProvided,
+    foodProvided,
+    contractDurationMonths,
+    workingHoursPerDay,
+    purbaSwukritiNumber,
+    purbaSwukritiDate,
+    purbaSwukritiExpiryDate,
+    notes,
     demandLetterFileUrl: toServedUrl(files.demandLetter?.[0]),
     powerOfAttorneyFileUrl: toServedUrl(files.powerOfAttorney?.[0]),
     embassyAttestedDemandUrl: toServedUrl(files.embassyAttested?.[0]),
     filledPositions: 0,
-    assignedCandidates: []
+    assignedCandidates: [],
   });
 
   res.status(201).json(demand);
@@ -86,26 +124,32 @@ const getDemands = asyncHandler(async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
-      .populate('assignedCandidates', 'fullName phone status desiredCountry')
+      .populate("assignedCandidates", "fullName phone status desiredCountry")
       .lean(),
-    JobDemand.countDocuments(filter)
+    JobDemand.countDocuments(filter),
   ]);
 
   res.status(200).json({
     data: demands,
     total,
     page: parseInt(page),
-    pages: Math.ceil(total / parseInt(limit))
+    pages: Math.ceil(total / parseInt(limit)),
   });
 });
 
 const getDemandById = asyncHandler(async (req, res) => {
-  const demand = await JobDemand.findOne({ _id: req.params.id, agencyId: req.user.agencyId })
-    .populate('assignedCandidates', 'fullName passportNumber phone status desiredCountry permanentDistrict serviceFeeAgreed serviceFeeReceived')
+  const demand = await JobDemand.findOne({
+    _id: req.params.id,
+    agencyId: req.user.agencyId,
+  })
+    .populate(
+      "assignedCandidates",
+      "fullName passportNumber phone status desiredCountry permanentDistrict serviceFeeAgreed serviceFeeReceived",
+    )
     .lean();
 
   if (!demand) {
-    return res.status(404).json({ message: 'Demand not found' });
+    return res.status(404).json({ message: "Demand not found" });
   }
 
   // Source-of-truth sync: candidates linked by demandId should always appear in assignedCandidates.
@@ -113,58 +157,71 @@ const getDemandById = asyncHandler(async (req, res) => {
   const allocatedPassports = await Passport.find({
     agencyId: req.user.agencyId,
     allocatedToDemandId: demand._id,
-    allocationStatus: 'allocated'
+    allocationStatus: "allocated",
   })
-    .select('_id fullName dateOfBirth gender passportNumber districtOfOrigin issuedDistrict candidateId contactPhone contactAddress agentName agentNumber serviceFeeAgreed')
+    .select(
+      "_id fullName dateOfBirth gender passportNumber districtOfOrigin issuedDistrict candidateId contactPhone contactAddress agentName agentNumber serviceFeeAgreed",
+    )
     .lean();
 
-  const missingCandidatePassports = allocatedPassports.filter((p) => !p.candidateId);
+  const missingCandidatePassports = allocatedPassports.filter(
+    (p) => !p.candidateId,
+  );
   if (missingCandidatePassports.length > 0) {
     for (const p of missingCandidatePassports) {
-      const repairedCandidate = await Candidate.create(scopeData(req, {
-        fullName: p.fullName,
-        dateOfBirth: p.dateOfBirth,
-        gender: p.gender || 'male',
-        nationalIdNumber: p.passportNumber,
-        phone: p.contactPhone || '',
-        permanentDistrict: sanitizeDistrict(p.districtOfOrigin || p.issuedDistrict),
-        passportId: p._id,
-        passportNumber: p.passportNumber,
-        demandId: demand._id,
-        desiredCountry: demand.employerCountry,
-        desiredJobCategory: demand.jobCategory,
-        address: p.contactAddress,
-        agentName: p.agentName,
-        agentNumber: p.agentNumber,
-        serviceFeeAgreed: p.serviceFeeAgreed,
-        status: 'demand_allocated',
-        agentId: req.user.userId,
-        registeredAt: new Date()
-      }));
+      const repairedCandidate = await Candidate.create(
+        scopeData(req, {
+          fullName: p.fullName,
+          dateOfBirth: p.dateOfBirth,
+          gender: p.gender || "male",
+          nationalIdNumber: p.passportNumber,
+          phone: p.contactPhone || "",
+          permanentDistrict: sanitizeDistrict(
+            p.districtOfOrigin || p.issuedDistrict,
+          ),
+          passportId: p._id,
+          passportNumber: p.passportNumber,
+          demandId: demand._id,
+          desiredCountry: demand.employerCountry,
+          desiredJobCategory: demand.jobCategory,
+          address: p.contactAddress,
+          agentName: p.agentName,
+          agentNumber: p.agentNumber,
+          serviceFeeAgreed: p.serviceFeeAgreed,
+          status: "demand_allocated",
+          agentId: req.user.userId,
+          registeredAt: new Date(),
+        }),
+      );
 
       await Passport.updateOne(
         { _id: p._id, agencyId: req.user.agencyId },
-        { $set: { candidateId: repairedCandidate._id } }
+        { $set: { candidateId: repairedCandidate._id } },
       );
     }
   }
 
   const linkedCandidates = await Candidate.find({
     agencyId: req.user.agencyId,
-    demandId: demand._id
+    demandId: demand._id,
   })
-    .select('fullName passportNumber phone status desiredCountry permanentDistrict serviceFeeAgreed serviceFeeReceived')
+    .select(
+      "fullName passportNumber phone status desiredCountry permanentDistrict serviceFeeAgreed serviceFeeReceived",
+    )
     .lean();
 
   const mergedById = new Map();
-  (demand.assignedCandidates || []).forEach((c) => mergedById.set(c._id.toString(), c));
+  (demand.assignedCandidates || []).forEach((c) =>
+    mergedById.set(c._id.toString(), c),
+  );
   linkedCandidates.forEach((c) => mergedById.set(c._id.toString(), c));
 
   const syncedAssignedCandidates = Array.from(mergedById.values());
 
   // Repair demand document if stale counts/list are out of sync.
   const needsRepair =
-    (demand.assignedCandidates?.length || 0) !== syncedAssignedCandidates.length ||
+    (demand.assignedCandidates?.length || 0) !==
+      syncedAssignedCandidates.length ||
     demand.filledPositions !== syncedAssignedCandidates.length;
 
   if (needsRepair) {
@@ -174,16 +231,21 @@ const getDemandById = asyncHandler(async (req, res) => {
         $set: {
           assignedCandidates: syncedAssignedCandidates.map((c) => c._id),
           filledPositions: syncedAssignedCandidates.length,
-          status: syncedAssignedCandidates.length >= demand.totalPositions ? 'filled' : demand.status === 'filled' ? 'active' : demand.status
-        }
-      }
+          status:
+            syncedAssignedCandidates.length >= demand.totalPositions
+              ? "filled"
+              : demand.status === "filled"
+                ? "active"
+                : demand.status,
+        },
+      },
     );
   }
 
   res.status(200).json({
     ...demand,
     assignedCandidates: syncedAssignedCandidates,
-    filledPositions: syncedAssignedCandidates.length
+    filledPositions: syncedAssignedCandidates.length,
   });
 });
 
@@ -210,11 +272,11 @@ const updateDemand = asyncHandler(async (req, res) => {
   const demand = await JobDemand.findOneAndUpdate(
     { _id: req.params.id, agencyId: req.user.agencyId },
     updates,
-    { new: true }
-  ).populate('assignedCandidates', 'fullName phone status');
+    { new: true },
+  ).populate("assignedCandidates", "fullName phone status");
 
   if (!demand) {
-    return res.status(404).json({ message: 'Demand not found' });
+    return res.status(404).json({ message: "Demand not found" });
   }
 
   res.status(200).json(demand);
@@ -224,12 +286,15 @@ const assignCandidate = asyncHandler(async (req, res) => {
   const { candidateId } = req.body;
 
   if (!candidateId) {
-    return res.status(400).json({ message: 'Candidate ID is required' });
+    return res.status(400).json({ message: "Candidate ID is required" });
   }
 
-  const candidate = await Candidate.findOne({ _id: candidateId, agencyId: req.user.agencyId });
+  const candidate = await Candidate.findOne({
+    _id: candidateId,
+    agencyId: req.user.agencyId,
+  });
   if (!candidate) {
-    return res.status(404).json({ message: 'Candidate not found' });
+    return res.status(404).json({ message: "Candidate not found" });
   }
 
   // Atomic update to JobDemand: ensure we don't exceed totalPositions
@@ -239,26 +304,33 @@ const assignCandidate = asyncHandler(async (req, res) => {
       _id: req.params.id,
       agencyId: req.user.agencyId,
       assignedCandidates: { $ne: candidateId },
-      $expr: { $lt: ["$filledPositions", "$totalPositions"] }
+      $expr: { $lt: ["$filledPositions", "$totalPositions"] },
     },
     {
       $push: { assignedCandidates: candidateId },
-      $inc: { filledPositions: 1 }
+      $inc: { filledPositions: 1 },
     },
-    { new: true }
+    { new: true },
   );
 
   if (!demand) {
     // Check why it failed
     const checkDemand = await JobDemand.findById(req.params.id);
-    if (!checkDemand) return res.status(404).json({ message: 'Demand not found' });
+    if (!checkDemand)
+      return res.status(404).json({ message: "Demand not found" });
     if (checkDemand.filledPositions >= checkDemand.totalPositions) {
-      return res.status(400).json({ message: 'All positions are already filled' });
+      return res
+        .status(400)
+        .json({ message: "All positions are already filled" });
     }
-    if (checkDemand.assignedCandidates.some(c => c.toString() === candidateId)) {
-      return res.status(400).json({ message: 'Candidate already assigned to this demand' });
+    if (
+      checkDemand.assignedCandidates.some((c) => c.toString() === candidateId)
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Candidate already assigned to this demand" });
     }
-    return res.status(400).json({ message: 'Failed to assign candidate' });
+    return res.status(400).json({ message: "Failed to assign candidate" });
   }
 
   // Check country match (Soft constraint, can be hard if needed)
@@ -267,9 +339,9 @@ const assignCandidate = asyncHandler(async (req, res) => {
   }
 
   // Update candidate side
-  await Candidate.findByIdAndUpdate(candidateId, { 
+  await Candidate.findByIdAndUpdate(candidateId, {
     demandId: demand._id, // Set the correct field (models showed demandId)
-    assignedDemand: demand._id // Keep as fallback if used elsewhere
+    assignedDemand: demand._id, // Keep as fallback if used elsewhere
   });
 
   // Recompute status
@@ -277,11 +349,13 @@ const assignCandidate = asyncHandler(async (req, res) => {
 
   // Check if we need to update demand status to 'filled'
   if (demand.filledPositions >= demand.totalPositions) {
-    await JobDemand.findByIdAndUpdate(demand._id, { status: 'filled' });
+    await JobDemand.findByIdAndUpdate(demand._id, { status: "filled" });
   }
 
-  const updatedDemand = await JobDemand.findById(demand._id)
-    .populate('assignedCandidates', 'fullName phone status desiredCountry');
+  const updatedDemand = await JobDemand.findById(demand._id).populate(
+    "assignedCandidates",
+    "fullName phone status desiredCountry",
+  );
 
   res.status(200).json(updatedDemand);
 });
@@ -293,34 +367,41 @@ const removeCandidate = asyncHandler(async (req, res) => {
     {
       _id: req.params.id,
       agencyId: req.user.agencyId,
-      assignedCandidates: candidateId
+      assignedCandidates: candidateId,
     },
     {
       $pull: { assignedCandidates: candidateId },
-      $inc: { filledPositions: -1 }
+      $inc: { filledPositions: -1 },
     },
-    { new: true }
+    { new: true },
   );
 
   if (!demand) {
-    return res.status(404).json({ message: 'Demand not found or candidate not assigned' });
+    return res
+      .status(404)
+      .json({ message: "Demand not found or candidate not assigned" });
   }
 
   // Update status to active if it was filled
-  if (demand.status === 'filled' && demand.filledPositions < demand.totalPositions) {
-    await JobDemand.findByIdAndUpdate(demand._id, { status: 'active' });
+  if (
+    demand.status === "filled" &&
+    demand.filledPositions < demand.totalPositions
+  ) {
+    await JobDemand.findByIdAndUpdate(demand._id, { status: "active" });
   }
 
   // Update candidate side
-  await Candidate.findByIdAndUpdate(candidateId, { 
-    $unset: { demandId: 1, assignedDemand: 1 } 
+  await Candidate.findByIdAndUpdate(candidateId, {
+    $unset: { demandId: 1, assignedDemand: 1 },
   });
 
   // Recompute candidate status
   await computeAndSaveCandidateStatus(candidateId);
 
-  const updatedDemand = await JobDemand.findById(demand._id)
-    .populate('assignedCandidates', 'fullName phone status desiredCountry');
+  const updatedDemand = await JobDemand.findById(demand._id).populate(
+    "assignedCandidates",
+    "fullName phone status desiredCountry",
+  );
 
   res.status(200).json(updatedDemand);
 });
@@ -331,14 +412,16 @@ const getExpiringDemands = asyncHandler(async (req, res) => {
 
   const expiring = await JobDemand.find({
     agencyId: req.user.agencyId,
-    status: 'active',
-    demandLetterExpiryDate: { $lte: fourteenDaysFromNow, $gte: new Date() }
+    status: "active",
+    demandLetterExpiryDate: { $lte: fourteenDaysFromNow, $gte: new Date() },
   })
     .sort({ demandLetterExpiryDate: 1 })
     .lean();
 
-  const enriched = expiring.map(d => {
-    const daysUntilExpiry = Math.ceil((new Date(d.demandLetterExpiryDate) - new Date()) / (1000 * 60 * 60 * 24));
+  const enriched = expiring.map((d) => {
+    const daysUntilExpiry = Math.ceil(
+      (new Date(d.demandLetterExpiryDate) - new Date()) / (1000 * 60 * 60 * 24),
+    );
     return { ...d, daysUntilExpiry };
   });
 
@@ -346,9 +429,12 @@ const getExpiringDemands = asyncHandler(async (req, res) => {
 });
 
 const getEligibleCandidates = asyncHandler(async (req, res) => {
-  const demand = await JobDemand.findOne({ _id: req.params.id, agencyId: req.user.agencyId });
+  const demand = await JobDemand.findOne({
+    _id: req.params.id,
+    agencyId: req.user.agencyId,
+  });
   if (!demand) {
-    return res.status(404).json({ message: 'Demand not found' });
+    return res.status(404).json({ message: "Demand not found" });
   }
 
   const assignedCandidateIds = demand.assignedCandidates;
@@ -356,21 +442,26 @@ const getEligibleCandidates = asyncHandler(async (req, res) => {
   const candidates = await Candidate.find({
     agencyId: req.user.agencyId,
     desiredCountry: demand.employerCountry,
-    status: { $in: ['medical_passed', 'insurance_done'] },
-    _id: { $nin: assignedCandidateIds }
-  }).select('fullName phone status desiredCountry permanentDistrict').lean();
+    status: { $in: ["medical_passed", "insurance_done"] },
+    _id: { $nin: assignedCandidateIds },
+  })
+    .select("fullName phone status desiredCountry permanentDistrict")
+    .lean();
 
   res.status(200).json(candidates);
 });
 
 const deleteDemand = asyncHandler(async (req, res) => {
-  if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
-    return res.status(403).json({ message: 'Only admin can delete demands' });
+  if (req.user.role !== "admin" && req.user.role !== "superadmin") {
+    return res.status(403).json({ message: "Only admin can delete demands" });
   }
 
-  const demand = await JobDemand.findOneAndDelete({ _id: req.params.id, agencyId: req.user.agencyId });
+  const demand = await JobDemand.findOneAndDelete({
+    _id: req.params.id,
+    agencyId: req.user.agencyId,
+  });
   if (!demand) {
-    return res.status(404).json({ message: 'Demand not found' });
+    return res.status(404).json({ message: "Demand not found" });
   }
 
   // Cascading cleanup for candidates
@@ -378,16 +469,16 @@ const deleteDemand = asyncHandler(async (req, res) => {
   if (assignedIds.length > 0) {
     await Candidate.updateMany(
       { _id: { $in: assignedIds } },
-      { $unset: { demandId: 1, assignedDemand: 1 } }
+      { $unset: { demandId: 1, assignedDemand: 1 } },
     );
-    
+
     // Recompute statuses for all affected candidates
     for (const cId of assignedIds) {
       await computeAndSaveCandidateStatus(cId);
     }
   }
 
-  res.status(200).json({ message: 'Demand deleted successfully' });
+  res.status(200).json({ message: "Demand deleted successfully" });
 });
 
 export default {
@@ -399,5 +490,5 @@ export default {
   removeCandidate,
   getExpiringDemands,
   getEligibleCandidates,
-  deleteDemand
+  deleteDemand,
 };

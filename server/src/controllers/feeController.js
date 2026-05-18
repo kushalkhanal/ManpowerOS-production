@@ -1,20 +1,29 @@
-import FeeTransaction from '../models/FeeTransaction.js';
-import Candidate from '../models/Candidate.js';
-import asyncHandler from '../utils/asyncHandler.js';
+import FeeTransaction from "../models/FeeTransaction.js";
+import Candidate from "../models/Candidate.js";
+import asyncHandler from "../utils/asyncHandler.js";
 
 const createTransaction = asyncHandler(async (req, res) => {
   const {
-    candidateId, transactionType, direction, amountNPR,
-    paymentMethod, transactionReference, paidAt, notes
+    candidateId,
+    transactionType,
+    direction,
+    amountNPR,
+    paymentMethod,
+    transactionReference,
+    paidAt,
+    notes,
   } = req.body;
 
   if (!candidateId || !transactionType || !direction || !amountNPR) {
-    return res.status(400).json({ message: 'Required fields missing' });
+    return res.status(400).json({ message: "Required fields missing" });
   }
 
-  const candidate = await Candidate.findOne({ _id: candidateId, agencyId: req.user.agencyId });
+  const candidate = await Candidate.findOne({
+    _id: candidateId,
+    agencyId: req.user.agencyId,
+  });
   if (!candidate) {
-    return res.status(404).json({ message: 'Candidate not found' });
+    return res.status(404).json({ message: "Candidate not found" });
   }
 
   const transactionData = {
@@ -27,7 +36,7 @@ const createTransaction = asyncHandler(async (req, res) => {
     transactionReference,
     paidAt: paidAt || new Date(),
     receivedBy: req.user.userId || req.user._id,
-    notes
+    notes,
   };
 
   if (req.file) {
@@ -44,7 +53,13 @@ const createTransaction = asyncHandler(async (req, res) => {
 });
 
 const getTransactions = asyncHandler(async (req, res) => {
-  const { candidateId, transactionType, direction, page = 1, limit = 50 } = req.query;
+  const {
+    candidateId,
+    transactionType,
+    direction,
+    page = 1,
+    limit = 50,
+  } = req.query;
   const skip = (parseInt(page) - 1) * parseInt(limit);
 
   const filter = { agencyId: req.user.agencyId };
@@ -57,59 +72,78 @@ const getTransactions = asyncHandler(async (req, res) => {
       .sort({ paidAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
-      .populate('candidateId', 'fullName phone passportNumber')
-      .populate('receivedBy', 'name')
+      .populate("candidateId", "fullName phone passportNumber")
+      .populate("receivedBy", "name")
       .lean(),
-    FeeTransaction.countDocuments(filter)
+    FeeTransaction.countDocuments(filter),
   ]);
 
   res.status(200).json({
     data: transactions,
     total,
     page: parseInt(page),
-    pages: Math.ceil(total / parseInt(limit))
+    pages: Math.ceil(total / parseInt(limit)),
   });
 });
 
 const getTransactionById = asyncHandler(async (req, res) => {
   const transaction = await FeeTransaction.findOne({
     _id: req.params.id,
-    agencyId: req.user.agencyId
+    agencyId: req.user.agencyId,
   })
-    .populate('candidateId', 'fullName phone passportNumber')
-    .populate('receivedBy', 'name');
+    .populate("candidateId", "fullName phone passportNumber")
+    .populate("receivedBy", "name");
 
   if (!transaction) {
-    return res.status(404).json({ message: 'Transaction not found' });
+    return res.status(404).json({ message: "Transaction not found" });
   }
 
   res.status(200).json(transaction);
 });
 
 const updateTransaction = asyncHandler(async (req, res) => {
-  const { transactionType, direction, amountNPR, paymentMethod, transactionReference, paidAt, notes } = req.body;
+  const {
+    transactionType,
+    direction,
+    amountNPR,
+    paymentMethod,
+    transactionReference,
+    paidAt,
+    notes,
+  } = req.body;
 
   const transaction = await FeeTransaction.findOne({
     _id: req.params.id,
-    agencyId: req.user.agencyId
+    agencyId: req.user.agencyId,
   });
 
   if (!transaction) {
-    return res.status(404).json({ message: 'Transaction not found' });
+    return res.status(404).json({ message: "Transaction not found" });
   }
 
-  const updates = { transactionType, direction, amountNPR, paymentMethod, transactionReference, paidAt, notes };
-  Object.keys(updates).forEach(key => {
+  const updates = {
+    transactionType,
+    direction,
+    amountNPR,
+    paymentMethod,
+    transactionReference,
+    paidAt,
+    notes,
+  };
+  Object.keys(updates).forEach((key) => {
     if (updates[key] !== undefined) {
-      if (key === 'amountNPR') transaction[key] = parseFloat(updates[key]);
-      else if (key === 'paidAt') transaction[key] = new Date(updates[key]);
+      if (key === "amountNPR") transaction[key] = parseFloat(updates[key]);
+      else if (key === "paidAt") transaction[key] = new Date(updates[key]);
       else transaction[key] = updates[key];
     }
   });
 
   await transaction.save();
 
-  await updateCandidatePaymentStatus(transaction.candidateId, req.user.agencyId);
+  await updateCandidatePaymentStatus(
+    transaction.candidateId,
+    req.user.agencyId,
+  );
 
   res.status(200).json(transaction);
 });
@@ -117,16 +151,19 @@ const updateTransaction = asyncHandler(async (req, res) => {
 const deleteTransaction = asyncHandler(async (req, res) => {
   const transaction = await FeeTransaction.findOneAndDelete({
     _id: req.params.id,
-    agencyId: req.user.agencyId
+    agencyId: req.user.agencyId,
   });
 
   if (!transaction) {
-    return res.status(404).json({ message: 'Transaction not found' });
+    return res.status(404).json({ message: "Transaction not found" });
   }
 
-  await updateCandidatePaymentStatus(transaction.candidateId, req.user.agencyId);
+  await updateCandidatePaymentStatus(
+    transaction.candidateId,
+    req.user.agencyId,
+  );
 
-  res.status(200).json({ message: 'Transaction deleted' });
+  res.status(200).json({ message: "Transaction deleted" });
 });
 
 const getSummary = asyncHandler(async (req, res) => {
@@ -148,11 +185,11 @@ const getSummary = asyncHandler(async (req, res) => {
     { $match: { agencyId, ...dateFilter } },
     {
       $group: {
-        _id: '$direction',
-        total: { $sum: '$amountNPR' },
-        count: { $sum: 1 }
-      }
-    }
+        _id: "$direction",
+        total: { $sum: "$amountNPR" },
+        count: { $sum: 1 },
+      },
+    },
   ];
 
   const results = await FeeTransaction.aggregate(pipeline);
@@ -161,14 +198,14 @@ const getSummary = asyncHandler(async (req, res) => {
     totalReceived: 0,
     totalPaid: 0,
     receivedCount: 0,
-    paidCount: 0
+    paidCount: 0,
   };
 
-  results.forEach(r => {
-    if (r._id === 'received') {
+  results.forEach((r) => {
+    if (r._id === "received") {
       summary.totalReceived = r.total;
       summary.receivedCount = r.count;
-    } else if (r._id === 'paid') {
+    } else if (r._id === "paid") {
       summary.totalPaid = r.total;
       summary.paidCount = r.count;
     }
@@ -177,42 +214,66 @@ const getSummary = asyncHandler(async (req, res) => {
   summary.net = summary.totalReceived - summary.totalPaid;
 
   const outstandingPipeline = [
-    { $match: { agencyId, direction: 'received', transactionType: 'service_fee' } },
-    { $group: { _id: '$candidateId', totalReceived: { $sum: '$amountNPR' } } },
-    { $lookup: { from: 'candidates', localField: '_id', foreignField: '_id', as: 'candidate' } },
-    { $unwind: '$candidate' },
-    { $match: { 'candidate.serviceFeeAgreed': { $gt: 0 } } },
+    {
+      $match: {
+        agencyId,
+        direction: "received",
+        transactionType: "service_fee",
+      },
+    },
+    { $group: { _id: "$candidateId", totalReceived: { $sum: "$amountNPR" } } },
+    {
+      $lookup: {
+        from: "candidates",
+        localField: "_id",
+        foreignField: "_id",
+        as: "candidate",
+      },
+    },
+    { $unwind: "$candidate" },
+    { $match: { "candidate.serviceFeeAgreed": { $gt: 0 } } },
     {
       $group: {
         _id: null,
         totalOutstanding: {
-          $sum: { $subtract: ['$candidate.serviceFeeAgreed', '$totalReceived'] }
-        }
-      }
-    }
+          $sum: {
+            $subtract: ["$candidate.serviceFeeAgreed", "$totalReceived"],
+          },
+        },
+      },
+    },
   ];
 
   try {
-    const outstandingResult = await FeeTransaction.aggregate(outstandingPipeline);
-    summary.outstanding = outstandingResult.length > 0 ? outstandingResult[0].totalOutstanding : 0;
+    const outstandingResult =
+      await FeeTransaction.aggregate(outstandingPipeline);
+    summary.outstanding =
+      outstandingResult.length > 0 ? outstandingResult[0].totalOutstanding : 0;
   } catch (e) {
     summary.outstanding = 0;
   }
 
   const monthlyPipeline = [
-    { $match: { agencyId, paidAt: { $gte: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000) } } },
+    {
+      $match: {
+        agencyId,
+        paidAt: { $gte: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000) },
+      },
+    },
     {
       $group: {
-        _id: { $dateToString: { format: '%Y-%m', date: '$paidAt' } },
+        _id: { $dateToString: { format: "%Y-%m", date: "$paidAt" } },
         received: {
-          $sum: { $cond: [{ $eq: ['$direction', 'received'] }, '$amountNPR', 0] }
+          $sum: {
+            $cond: [{ $eq: ["$direction", "received"] }, "$amountNPR", 0],
+          },
         },
         paid: {
-          $sum: { $cond: [{ $eq: ['$direction', 'paid'] }, '$amountNPR', 0] }
-        }
-      }
+          $sum: { $cond: [{ $eq: ["$direction", "paid"] }, "$amountNPR", 0] },
+        },
+      },
     },
-    { $sort: { _id: 1 } }
+    { $sort: { _id: 1 } },
   ];
 
   const monthlyData = await FeeTransaction.aggregate(monthlyPipeline);
@@ -224,35 +285,38 @@ const getSummary = asyncHandler(async (req, res) => {
 const getCandidateSummary = asyncHandler(async (req, res) => {
   const { candidateId } = req.params;
 
-  const candidate = await Candidate.findOne({ _id: candidateId, agencyId: req.user.agencyId });
+  const candidate = await Candidate.findOne({
+    _id: candidateId,
+    agencyId: req.user.agencyId,
+  });
   if (!candidate) {
-    return res.status(404).json({ message: 'Candidate not found' });
+    return res.status(404).json({ message: "Candidate not found" });
   }
 
   const transactions = await FeeTransaction.find({
     agencyId: req.user.agencyId,
-    candidateId
+    candidateId,
   })
     .sort({ paidAt: -1 })
-    .populate('receivedBy', 'name')
+    .populate("receivedBy", "name")
     .lean();
 
   const summary = {
     totalReceived: 0,
     totalPaid: 0,
-    breakdown: {}
+    breakdown: {},
   };
 
-  TRANSACTION_TYPES.forEach(type => {
+  TRANSACTION_TYPES.forEach((type) => {
     summary.breakdown[type] = { received: 0, paid: 0 };
   });
 
-  transactions.forEach(t => {
-    const key = t.direction === 'received' ? 'received' : 'paid';
+  transactions.forEach((t) => {
+    const key = t.direction === "received" ? "received" : "paid";
     if (summary.breakdown[t.transactionType]) {
       summary.breakdown[t.transactionType][key] += t.amountNPR;
     }
-    if (t.direction === 'received') {
+    if (t.direction === "received") {
       summary.totalReceived += t.amountNPR;
     } else {
       summary.totalPaid += t.amountNPR;
@@ -265,24 +329,28 @@ const getCandidateSummary = asyncHandler(async (req, res) => {
 
   res.status(200).json({
     transactions,
-    summary
+    summary,
   });
 });
 
 const updateCandidatePaymentStatus = async (candidateId, agencyId) => {
-  const transactions = await FeeTransaction.find({ candidateId, agencyId, direction: 'received' });
+  const transactions = await FeeTransaction.find({
+    candidateId,
+    agencyId,
+    direction: "received",
+  });
   const totalReceived = transactions.reduce((sum, t) => sum + t.amountNPR, 0);
 
   const candidate = await Candidate.findById(candidateId);
   if (!candidate) return;
 
   if (totalReceived === 0) {
-    candidate.paymentStatus = 'unpaid';
+    candidate.paymentStatus = "unpaid";
   } else if (totalReceived >= (candidate.serviceFeeAgreed || 0)) {
-    candidate.paymentStatus = 'paid';
+    candidate.paymentStatus = "paid";
     candidate.serviceFeeReceived = totalReceived;
   } else {
-    candidate.paymentStatus = 'partial';
+    candidate.paymentStatus = "partial";
     candidate.serviceFeeReceived = totalReceived;
   }
 
@@ -290,8 +358,13 @@ const updateCandidatePaymentStatus = async (candidateId, agencyId) => {
 };
 
 const TRANSACTION_TYPES = [
-  'service_fee', 'document_charge', 'medical_charge', 'orientation_charge',
-  'insurance_charge', 'visa_charge', 'other'
+  "service_fee",
+  "document_charge",
+  "medical_charge",
+  "orientation_charge",
+  "insurance_charge",
+  "visa_charge",
+  "other",
 ];
 
 export {
@@ -301,5 +374,5 @@ export {
   updateTransaction,
   deleteTransaction,
   getSummary,
-  getCandidateSummary
+  getCandidateSummary,
 };
