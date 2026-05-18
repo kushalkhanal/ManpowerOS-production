@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useMedical } from '../hooks/useMedical';
 import { isValidFileSize, isValidFileType } from '../utils/validation';
+import { useSecureDocUrl } from '../utils/secureDocUrl';
 
 const MedicalModal = ({ isOpen, onClose, medical, candidateId, onSuccess }) => {
   const { updateMedical, createMedical, loading } = useMedical();
   const [formData, setFormData] = useState({
     medicalCenter: '',
-    amount: '',
+    referringAgency: '',
     conductedDate: '',
     fit: 'yes',
     examinedBy: '',
@@ -17,11 +18,7 @@ const MedicalModal = ({ isOpen, onClose, medical, candidateId, onSuccess }) => {
   const allowedFileTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf', 'image/webp'];
   const maxFileSize = 10 * 1024 * 1024;
 
-  const resolveFileUrl = (url) => {
-    if (!url) return null;
-    if (url.startsWith('http')) return url;
-    return `${import.meta.env.VITE_SERVER_URL || ''}${url}`;
-  };
+  const { url: secureReportUrl } = useSecureDocUrl(medical?.reportFileUrl);
 
   const getReadableError = (err) => {
     const apiMessage = err?.response?.data?.message;
@@ -48,7 +45,7 @@ const MedicalModal = ({ isOpen, onClose, medical, candidateId, onSuccess }) => {
     if (isOpen && medical) {
       setFormData({
         medicalCenter: medical.medicalCenter || '',
-        amount: medical.amount != null ? String(medical.amount) : '',
+        referringAgency: medical.referringAgency || '',
         conductedDate: medical.conductedDate ? medical.conductedDate.split('T')[0] : '',
         fit: medical.result === 'unfit' ? 'no' : medical.result === 'fit' ? 'yes' : 'yes',
         examinedBy: medical.examinedBy || '',
@@ -56,7 +53,7 @@ const MedicalModal = ({ isOpen, onClose, medical, candidateId, onSuccess }) => {
     } else if (isOpen) {
       setFormData({
         medicalCenter: '',
-        amount: '',
+        referringAgency: '',
         conductedDate: '',
         fit: 'yes',
         examinedBy: '',
@@ -95,28 +92,15 @@ const MedicalModal = ({ isOpen, onClose, medical, candidateId, onSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const nextErrors = {};
-
-    if (!formData.medicalCenter.trim()) {
-      nextErrors.medicalCenter = 'Institute Name is required';
-    }
-    if (!formData.conductedDate) {
-      nextErrors.conductedDate = 'Check Up Date is required';
-    }
-
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors);
-      return;
-    }
     setErrors({});
 
     try {
       const dataToSend = {
-        medicalCenter: formData.medicalCenter,
-        amount: formData.amount !== '' ? Number(formData.amount) : undefined,
-        conductedDate: formData.conductedDate,
+        medicalCenter: formData.medicalCenter.trim() || undefined,
+        referringAgency: formData.referringAgency.trim() || undefined,
+        conductedDate: formData.conductedDate || undefined,
         result: formData.fit === 'yes' ? 'fit' : 'unfit',
-        examinedBy: formData.examinedBy,
+        examinedBy: formData.examinedBy.trim() || undefined,
         candidateId,
         reportFile,
       };
@@ -160,9 +144,7 @@ const MedicalModal = ({ isOpen, onClose, medical, candidateId, onSuccess }) => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Institute Name <span className="text-red-500">*</span>
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700">Institute Name</label>
                     <input
                       type="text"
                       name="medicalCenter"
@@ -175,22 +157,21 @@ const MedicalModal = ({ isOpen, onClose, medical, candidateId, onSuccess }) => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Amount</label>
+                    <label className="block text-sm font-medium text-gray-700">Manpower / Agency</label>
                     <input
-                      type="number"
-                      name="amount"
-                      value={formData.amount}
+                      type="text"
+                      name="referringAgency"
+                      value={formData.referringAgency}
                       onChange={handleChange}
-                      placeholder="Enter amount"
-                      min="0"
+                      placeholder="Manpower the candidate is going through"
+                      maxLength={200}
                       className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                     />
+                    <p className="text-xs text-gray-400 mt-1">Optional — name of the manpower agency referring the candidate for this medical.</p>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Check Up Date <span className="text-red-500">*</span>
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700">Check Up Date</label>
                     <input
                       type="date"
                       name="conductedDate"
@@ -240,14 +221,16 @@ const MedicalModal = ({ isOpen, onClose, medical, candidateId, onSuccess }) => {
                         <span className="text-xs text-green-700 font-medium flex-1 truncate">
                           {medical.reportFileUrl.split('/').pop()}
                         </span>
-                        <a
-                          href={resolveFileUrl(medical.reportFileUrl)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-green-700 underline hover:text-green-900 flex-shrink-0"
-                        >
-                          View
-                        </a>
+                        {secureReportUrl && (
+                          <a
+                            href={secureReportUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-green-700 underline hover:text-green-900 flex-shrink-0"
+                          >
+                            View
+                          </a>
+                        )}
                       </div>
                     )}
                     <input
@@ -284,7 +267,7 @@ const MedicalModal = ({ isOpen, onClose, medical, candidateId, onSuccess }) => {
                 </form>
 
                 <p className="text-xs text-gray-500 mt-3">
-                  <span className="text-red-500">*</span> Required fields
+                  All fields are optional. Add what you have — you can update later.
                 </p>
               </div>
             </div>
