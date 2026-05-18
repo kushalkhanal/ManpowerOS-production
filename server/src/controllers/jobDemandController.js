@@ -1,3 +1,4 @@
+import ExcelJS from "exceljs";
 import JobDemand from "../models/JobDemand.js";
 import Candidate, { NEPAL_DISTRICTS_LIST } from "../models/Candidate.js";
 import Passport from "../models/Passport.js";
@@ -481,6 +482,140 @@ const deleteDemand = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Demand deleted successfully" });
 });
 
+const toggleInterviewRequired = asyncHandler(async (req, res) => {
+  const { id, candidateId } = req.params;
+  const demand = await JobDemand.findOne({
+    _id: id,
+    agencyId: req.user.agencyId,
+  });
+  if (!demand) return res.status(404).json({ message: "Demand not found" });
+
+  const current = demand.interviewRequired?.get(candidateId) ?? false;
+  demand.interviewRequired.set(candidateId, !current);
+  await demand.save();
+
+  res.status(200).json({ candidateId, interviewRequired: !current });
+});
+
+const exportCandidates = asyncHandler(async (req, res) => {
+  const { filter } = req.query; // "all" | "interview" (default "all")
+
+  const demand = await JobDemand.findOne({
+    _id: req.params.id,
+    agencyId: req.user.agencyId,
+  }).lean();
+  if (!demand) return res.status(404).json({ message: "Demand not found" });
+
+  const candidateIds = demand.assignedCandidates || [];
+
+  let candidates = await Candidate.find({
+    agencyId: req.user.agencyId,
+    $or: [{ demandId: demand._id }, { _id: { $in: candidateIds } }],
+  })
+    .select(
+      "fullName passportNumber phone permanentDistrict agentName agentNumber status desiredJobCategory",
+    )
+    .lean();
+
+  // Enrich with passport data (expiry, issued district)
+  const passports = await Passport.find({
+    agencyId: req.user.agencyId,
+    allocatedToDemandId: demand._id,
+  })
+    .select(
+      "candidateId passportNumber expiryDate fullName agentName agentNumber contactPhone",
+    )
+    .lean();
+
+  const passportByCandidateId = new Map();
+  passports.forEach((p) => {
+    if (p.candidateId) passportByCandidateId.set(p.candidateId.toString(), p);
+  });
+
+  // Attach interview flag
+  const interviewMap = demand.interviewRequired || {};
+  candidates = candidates.map((c) => ({
+    ...c,
+    interviewRequired: interviewMap[c._id.toString()] ?? false,
+    passport: passportByCandidateId.get(c._id.toString()) || null,
+  }));
+
+  if (filter === "interview") {
+    candidates = candidates.filter((c) => c.interviewRequired);
+  }
+
+  // Build Excel
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "ManpowerOS";
+  const sheet = workbook.addWorksheet("Candidates");
+
+  sheet.columns = [
+    { header: "S.N.", key: "sn", width: 6 },
+    { header: "Full Name", key: "fullName", width: 22 },
+    { header: "Passport No.", key: "passportNumber", width: 16 },
+    { header: "Passport Expiry", key: "passportExpiry", width: 16 },
+    { header: "Phone", key: "phone", width: 16 },
+    { header: "Agent Name", key: "agentName", width: 18 },
+    { header: "Agent Phone", key: "agentPhone", width: 16 },
+    { header: "District", key: "district", width: 16 },
+    { header: "Job Position", key: "jobPosition", width: 18 },
+    { header: "Employer", key: "employer", width: 22 },
+    { header: "Country", key: "country", width: 14 },
+    { header: "Interview Req.", key: "interview", width: 14 },
+    { header: "Status", key: "status", width: 18 },
+  ];
+
+  // Header row styling
+  sheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+  sheet.getRow(1).fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FF1A56DB" },
+  };
+  sheet.getRow(1).alignment = { vertical: "middle", horizontal: "center" };
+
+  const fmtDate = (d) => (d ? new Date(d).toLocaleDateString("en-GB") : "");
+
+  candidates.forEach((c, i) => {
+    const p = c.passport;
+    sheet.addRow({
+      sn: i + 1,
+      fullName: c.fullName || p?.fullName || "",
+      passportNumber: c.passportNumber || p?.passportNumber || "",
+      passportExpiry: fmtDate(p?.expiryDate),
+      phone: c.phone || p?.contactPhone || "",
+      agentName: c.agentName || p?.agentName || "",
+      agentPhone: c.agentNumber || p?.agentNumber || "",
+      district: c.permanentDistrict || "",
+      jobPosition: c.desiredJobCategory || demand.jobCategory || "",
+      employer: demand.employerCompanyName || "",
+      country: demand.employerCountry || "",
+      interview: c.interviewRequired ? "Yes" : "No",
+      status: (c.status || "").replace(/_/g, " "),
+    });
+  });
+
+  // Zebra rows
+  sheet.eachRow((row, rowNum) => {
+    if (rowNum === 1) return;
+    const fill =
+      rowNum % 2 === 0
+        ? { type: "pattern", pattern: "solid", fgColor: { argb: "FFF3F4F6" } }
+        : { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFFFF" } };
+    row.fill = fill;
+    row.alignment = { vertical: "middle" };
+  });
+
+  const filename = `${demand.employerCompanyName.replace(/\s+/g, "_")}_candidates_${Date.now()}.xlsx`;
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  );
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  await workbook.xlsx.write(res);
+  res.end();
+});
+
 export default {
   createDemand,
   getDemands,
@@ -491,4 +626,6 @@ export default {
   getExpiringDemands,
   getEligibleCandidates,
   deleteDemand,
+  toggleInterviewRequired,
+  exportCandidates,
 };
