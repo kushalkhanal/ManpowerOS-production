@@ -1522,38 +1522,46 @@ export default {
   }),
 
   updateProfileSection: asyncHandler(async (req, res) => {
-    const allowed = [
+    const allowedFlat = [
       'bankInfo', 'training', 'academic', 'nomineeInfo',
       'permanentProvince', 'permanentDistrict', 'permanentMunicipality', 'permanentWardNo',
       'temporaryAddress', 'temporaryMunicipality', 'temporaryDistrict', 'temporaryProvince',
       'visaNumber', 'visaIssuedDate', 'visaReceivedDate', 'visaExpiryDate',
       'kdnBpaNo', 'branchInfo', 'maritalStatus', 'religion',
-      'physicalAttributes', 'workHistory',
+      'workHistory', // array replacement is fine with $set
     ];
+    const physicalAttrsKeys = ['height', 'weight', 'bloodGroup', 'eyeColor', 'complexion'];
 
-    const updates = Object.fromEntries(
-      Object.entries(req.body).filter(([k]) => allowed.includes(k))
-    );
+    // Build a flat $set object. Top-level fields stay as-is (works like address).
+    // physicalAttributes is flattened to MongoDB dot-notation so subdoc cast
+    // can't silently drop fields the way it can with `$set: { physicalAttributes: {...} }`.
+    const updates = {};
+    for (const key of allowedFlat) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+    if (req.body.physicalAttributes && typeof req.body.physicalAttributes === 'object') {
+      for (const k of physicalAttrsKeys) {
+        if (req.body.physicalAttributes[k] !== undefined) {
+          updates[`physicalAttributes.${k}`] = req.body.physicalAttributes[k];
+        }
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: 'No valid fields to update' });
+    }
 
     logger.info(`[updateProfileSection] candidate=${req.params.id} keys=${Object.keys(updates).join(',')}`);
 
-    // Use findOne + save instead of findOneAndUpdate so Mongoose properly casts
-    // subdocument schemas (physicalAttributes, workHistory) and triggers any
-    // necessary middleware. findOneAndUpdate with $set on a typed subdocument
-    // can silently lose data if the cast fails.
-    const candidate = await Candidate.findOne(scopeFilter(req, { _id: req.params.id }));
+    const candidate = await Candidate.findOneAndUpdate(
+      scopeFilter(req, { _id: req.params.id }),
+      { $set: updates },
+      { new: true, runValidators: false }
+    );
+
     if (!candidate) return res.status(404).json({ message: 'Candidate not found' });
 
-    Object.assign(candidate, updates);
-
-    // Mongoose can't always detect nested subdocument changes via Object.assign
-    // — explicit markModified guarantees the write hits MongoDB.
-    if (updates.physicalAttributes) candidate.markModified('physicalAttributes');
-    if (updates.workHistory) candidate.markModified('workHistory');
-
-    await candidate.save({ validateBeforeSave: false });
-
-    if (updates.physicalAttributes) {
+    if (req.body.physicalAttributes) {
       logger.info(`[updateProfileSection] saved physicalAttributes=${JSON.stringify(candidate.physicalAttributes)}`);
     }
     if (updates.workHistory) {
