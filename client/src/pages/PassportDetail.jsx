@@ -93,6 +93,9 @@ const PassportDetail = () => {
   const loadPassport = async () => {
     try {
       const data = await getPassportById(id);
+      console.log('[PassportDetail] REFETCHED passport.candidateId:', data?.passport?.candidateId);
+      console.log('[PassportDetail] REFETCHED physicalAttributes:', data?.passport?.candidateId?.physicalAttributes);
+      console.log('[PassportDetail] REFETCHED workHistory:', data?.passport?.candidateId?.workHistory);
       setPassport(data.passport);
       setLogs(data.logs || []);
     } catch (err) {

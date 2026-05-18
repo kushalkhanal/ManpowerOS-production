@@ -1,3 +1,5 @@
+console.log('🚨🚨🚨 [CANDIDATE_CONTROLLER] LOADED VERSION 2026-05-18-RAW-DRIVER 🚨🚨🚨');
+import mongoose from 'mongoose';
 import Candidate from '../models/Candidate.js';
 import User from '../models/User.js';
 import Passport from '../models/Passport.js';
@@ -1522,51 +1524,54 @@ export default {
   }),
 
   updateProfileSection: asyncHandler(async (req, res) => {
-    const allowedFlat = [
+    // ── COMPLETE REWRITE using raw MongoDB driver ──────────────────────────
+    // Mongoose's findOneAndUpdate + strict-mode subdocument cast was silently
+    // dropping `physicalAttributes` and `workHistory` writes on this candidate
+    // collection. We bypass Mongoose entirely for the write+read so MongoDB
+    // sees the data exactly as the client sent it.
+    const allowedKeys = [
       'bankInfo', 'training', 'academic', 'nomineeInfo',
       'permanentProvince', 'permanentDistrict', 'permanentMunicipality', 'permanentWardNo',
       'temporaryAddress', 'temporaryMunicipality', 'temporaryDistrict', 'temporaryProvince',
       'visaNumber', 'visaIssuedDate', 'visaReceivedDate', 'visaExpiryDate',
       'kdnBpaNo', 'branchInfo', 'maritalStatus', 'religion',
-      'workHistory', // array replacement is fine with $set
+      'physicalAttributes', 'workHistory',
     ];
-    const physicalAttrsKeys = ['height', 'weight', 'bloodGroup', 'eyeColor', 'complexion'];
 
-    // Build a flat $set object. Top-level fields stay as-is (works like address).
-    // physicalAttributes is flattened to MongoDB dot-notation so subdoc cast
-    // can't silently drop fields the way it can with `$set: { physicalAttributes: {...} }`.
     const updates = {};
-    for (const key of allowedFlat) {
+    for (const key of allowedKeys) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
-    }
-    if (req.body.physicalAttributes && typeof req.body.physicalAttributes === 'object') {
-      for (const k of physicalAttrsKeys) {
-        if (req.body.physicalAttributes[k] !== undefined) {
-          updates[`physicalAttributes.${k}`] = req.body.physicalAttributes[k];
-        }
-      }
     }
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ message: 'No valid fields to update' });
     }
 
-    logger.info(`[updateProfileSection] candidate=${req.params.id} keys=${Object.keys(updates).join(',')}`);
+    // Build scoped filter using a raw ObjectId so the native driver matches it
+    const scoped = scopeFilter(req, { _id: req.params.id });
+    const rawFilter = { ...scoped, _id: new mongoose.Types.ObjectId(req.params.id) };
 
-    const candidate = await Candidate.findOneAndUpdate(
-      scopeFilter(req, { _id: req.params.id }),
-      { $set: updates },
-      { new: true, runValidators: false }
-    );
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('[updateProfileSection] req.body keys =', Object.keys(req.body));
+    console.log('[updateProfileSection] req.body.physicalAttributes =', JSON.stringify(req.body.physicalAttributes));
+    console.log('[updateProfileSection] $set updates =', JSON.stringify(updates));
+    console.log('[updateProfileSection] rawFilter =', JSON.stringify(rawFilter));
 
-    if (!candidate) return res.status(404).json({ message: 'Candidate not found' });
+    // RAW MongoDB driver write — no Mongoose, no strict mode, no subdoc cast
+    const writeResult = await Candidate.collection.updateOne(rawFilter, { $set: updates });
+    console.log('[updateProfileSection] updateOne result =', JSON.stringify(writeResult));
 
-    if (req.body.physicalAttributes) {
-      logger.info(`[updateProfileSection] saved physicalAttributes=${JSON.stringify(candidate.physicalAttributes)}`);
+    if (writeResult.matchedCount === 0) {
+      console.log('[updateProfileSection] CANDIDATE NOT MATCHED — check scopeFilter');
+      return res.status(404).json({ message: 'Candidate not found' });
     }
-    if (updates.workHistory) {
-      logger.info(`[updateProfileSection] saved workHistory count=${candidate.workHistory?.length || 0}`);
-    }
+
+    // RAW MongoDB driver read — no Mongoose hydration, no field stripping
+    const candidate = await Candidate.collection.findOne(rawFilter);
+    console.log('[updateProfileSection] AFTER WRITE — physicalAttributes =', JSON.stringify(candidate?.physicalAttributes));
+    console.log('[updateProfileSection] AFTER WRITE — workHistory =', JSON.stringify(candidate?.workHistory));
+    console.log('[updateProfileSection] AFTER WRITE — nomineeInfo =', JSON.stringify(candidate?.nomineeInfo));
+    console.log('═══════════════════════════════════════════════════════════════');
 
     res.status(200).json({ success: true, candidate });
   }),

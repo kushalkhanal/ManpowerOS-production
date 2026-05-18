@@ -30,22 +30,12 @@ const NEPAL_PROVINCES = [
 // Defining these explicitly (instead of inline nested paths) makes Mongoose
 // reliably persist + return them via $set updates and populate projections.
 
-const PhysicalAttributesSchema = new mongoose.Schema({
-  height:     { type: String, trim: true },
-  weight:     { type: String, trim: true },
-  bloodGroup: { type: String, trim: true },
-  eyeColor:   { type: String, trim: true },
-  complexion: { type: String, trim: true }
-}, { _id: false });
-
-const WorkHistoryItemSchema = new mongoose.Schema({
-  company:   { type: String, trim: true },
-  position:  { type: String, trim: true },
-  country:   { type: String, trim: true },
-  fromDate:  Date,
-  toDate:    Date,
-  isCurrent: { type: Boolean, default: false }
-}, { _id: false });
+// NOTE: physicalAttributes and workHistory are declared as INLINE subdocuments
+// (see further down in the schema), NOT as separate typed Schemas. The typed-
+// Schema approach (`{ type: PhysicalAttributesSchema, default: () => ({}) }`)
+// fails silently on `$set` when the existing MongoDB document predates the
+// field — Mongoose's strict-mode subdoc cast drops the write. Inline objects
+// behave like `nomineeInfo` and persist reliably.
 
 const NEPAL_DISTRICTS = [
   'Achham', 'Arghakhanchi', 'Baglung', 'Baitadi', 'Bajhang', 'Bajura', 'Banke', 'Bara',
@@ -161,9 +151,22 @@ const candidateSchema = new mongoose.Schema({
     max: 50
   },
   // ── Physical attributes (optional, for labour CV) ──────────────────────────
-  physicalAttributes: { type: PhysicalAttributesSchema, default: () => ({}) },
+  physicalAttributes: {
+    height:     String,
+    weight:     String,
+    bloodGroup: String,
+    eyeColor:   String,
+    complexion: String,
+  },
   // ── Past work history (for CV) ─────────────────────────────────────────────
-  workHistory: { type: [WorkHistoryItemSchema], default: [] },
+  workHistory: [{
+    company:   String,
+    position:  String,
+    country:   String,
+    fromDate:  Date,
+    toDate:    Date,
+    isCurrent: { type: Boolean, default: false },
+  }],
   previousCountry: String,
   desiredCountry: {
     type: String,

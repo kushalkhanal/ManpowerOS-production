@@ -436,7 +436,13 @@ export default function EditCandidateSectionModal({ isOpen, section, candidate, 
           break;
         }
       }
-      await candidatesApi.updateProfileSection(candidate._id, payload);
+      console.log('[EditCandidateSectionModal] section=', section, 'candidate._id=', candidate._id);
+      console.log('[EditCandidateSectionModal] PAYLOAD SENT:', JSON.stringify(payload, null, 2));
+      const resp = await candidatesApi.updateProfileSection(candidate._id, payload);
+      console.log('[EditCandidateSectionModal] RAW RESPONSE:', resp);
+      console.log('[EditCandidateSectionModal] response.data:', resp?.data);
+      console.log('[EditCandidateSectionModal] response.data.candidate.physicalAttributes:', resp?.data?.candidate?.physicalAttributes);
+      console.log('[EditCandidateSectionModal] response.data.candidate.workHistory:', resp?.data?.candidate?.workHistory);
       showToast.success('Saved successfully');
       onSuccess();
       onClose();

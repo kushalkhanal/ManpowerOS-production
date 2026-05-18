@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,7 +6,25 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const src = (p) => path.resolve(__dirname, "src", p);
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  // Load .env, .env.local, .env.[mode], .env.[mode].local from this client dir.
+  // The empty prefix means ALL keys (not just VITE_*) are exposed to this
+  // config file — Vite still only ships VITE_* keys to the client bundle.
+  const env = loadEnv(mode, __dirname, "");
+
+  // Proxy target rules:
+  //   - `vite dev` (mode === 'development')  → http://localhost:5000   (your local API)
+  //   - any other mode (e.g. `vite --mode production`) → https://kushalkhanal.com.np
+  //   - explicit override via client/.env.local: VITE_DEV_PROXY_TARGET=...
+  //
+  // Note: this proxy only runs under `vite dev`. Production users of the
+  // built bundle never hit it — their API calls go to the same origin that
+  // serves the bundle (kushalkhanal.com.np in your case).
+  const proxyTarget =
+    env.VITE_DEV_PROXY_TARGET ||
+    (mode === "development" ? "http://localhost:5000" : "https://kushalkhanal.com.np");
+
+  return {
   plugins: [react()],
   resolve: {
     // In npm workspaces, packages are hoisted to the root node_modules.
@@ -34,11 +52,11 @@ export default defineConfig({
     },
     proxy: {
       "/api": {
-        target: "https://kushalkhanal.com.np",
+        target: proxyTarget,
         changeOrigin: true,
       },
       "/uploads": {
-        target: "https://kushalkhanal.com.np",
+        target: proxyTarget,
         changeOrigin: true,
       },
     },
@@ -67,4 +85,5 @@ export default defineConfig({
       },
     },
   },
+  };
 });

@@ -165,6 +165,10 @@ const getPassports = asyncHandler(async (req, res) => {
 });
 
 const getPassportById = asyncHandler(async (req, res) => {
+  // Use .lean() so populate returns RAW BSON for the candidate — Mongoose
+  // hydration would otherwise strip fields like `physicalAttributes` and
+  // `workHistory` when the on-disk subdoc shape doesn't perfectly match the
+  // schema. Lean reads bypass that entirely.
   const passport = await Passport.findOne(scopeFilter(req, {
     _id: req.params.id
   }))
@@ -181,15 +185,20 @@ const getPassportById = asyncHandler(async (req, res) => {
     ].join(' '))
     .populate('collectedBy', 'name')
     .populate('returnedBy', 'name')
-    .populate('allocatedToDemandId', 'employerCompanyName employerCountry jobCategory');
+    .populate('allocatedToDemandId', 'employerCompanyName employerCountry jobCategory')
+    .lean();
 
   if (!passport) {
     return res.status(404).json({ message: 'Passport not found' });
   }
 
+  console.log('[getPassportById] lean populated candidate.physicalAttributes =', JSON.stringify(passport?.candidateId?.physicalAttributes));
+  console.log('[getPassportById] lean populated candidate.workHistory =', JSON.stringify(passport?.candidateId?.workHistory));
+
   const logs = await PassportLog.find({ passportId: passport._id })
     .sort({ timestamp: -1 })
-    .populate('performedBy', 'name');
+    .populate('performedBy', 'name')
+    .lean();
 
   res.status(200).json({ passport, logs });
 });
