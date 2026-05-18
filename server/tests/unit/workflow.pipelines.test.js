@@ -22,8 +22,8 @@ describe('Workflow — Pipelines', () => {
       expect(Object.isFrozen(gulf)).toBe(true);
     });
 
-    it('has 14 stages (no PLKS)', () => {
-      expect(gulf.stages).toHaveLength(14);
+    it('has 11 stages (govt-compliance stages moved to Compliance card)', () => {
+      expect(gulf.stages).toHaveLength(11);
     });
 
     it('includes VISA_STAMPING', () => {
@@ -36,14 +36,11 @@ describe('Workflow — Pipelines', () => {
       expect(ids).not.toContain(STAGE.PLKS);
     });
 
-    it('includes FEIMS_SUBMISSION', () => {
+    it('does NOT include Government Compliance stages (tracked on Compliance card)', () => {
       const ids = gulf.stages.map(s => s.id);
-      expect(ids).toContain(STAGE.FEIMS_SUBMISSION);
-    });
-
-    it('includes SHRAM_SWUKRITI', () => {
-      const ids = gulf.stages.map(s => s.id);
-      expect(ids).toContain(STAGE.SHRAM_SWUKRITI);
+      expect(ids).not.toContain(STAGE.PURBA_SWUKRITI);
+      expect(ids).not.toContain(STAGE.FEIMS_SUBMISSION);
+      expect(ids).not.toContain(STAGE.SHRAM_SWUKRITI);
     });
 
     it('starts with REGISTRATION', () => {
@@ -66,9 +63,9 @@ describe('Workflow — Pipelines', () => {
       expect(ids.indexOf(STAGE.CALLING_VISA)).toBeLessThan(ids.indexOf(STAGE.VISA_STAMPING));
     });
 
-    it('VISA_STAMPING comes before FEIMS_SUBMISSION', () => {
+    it('VISA_STAMPING comes before DEPARTURE_PREP', () => {
       const ids = gulf.stages.map(s => s.id);
-      expect(ids.indexOf(STAGE.VISA_STAMPING)).toBeLessThan(ids.indexOf(STAGE.FEIMS_SUBMISSION));
+      expect(ids.indexOf(STAGE.VISA_STAMPING)).toBeLessThan(ids.indexOf(STAGE.DEPARTURE_PREP));
     });
   });
 
@@ -82,13 +79,13 @@ describe('Workflow — Pipelines', () => {
       expect(Object.isFrozen(malaysia)).toBe(true);
     });
 
-    it('has 14 stages (no VISA_STAMPING)', () => {
-      expect(malaysia.stages).toHaveLength(14);
+    it('has 10 stages (govt-compliance stages + PLKS moved to Compliance card)', () => {
+      expect(malaysia.stages).toHaveLength(10);
     });
 
-    it('includes PLKS', () => {
+    it('does NOT include PLKS (tracked on Compliance card)', () => {
       const ids = malaysia.stages.map(s => s.id);
-      expect(ids).toContain(STAGE.PLKS);
+      expect(ids).not.toContain(STAGE.PLKS);
     });
 
     it('does NOT include VISA_STAMPING', () => {
@@ -96,9 +93,11 @@ describe('Workflow — Pipelines', () => {
       expect(ids).not.toContain(STAGE.VISA_STAMPING);
     });
 
-    it('includes FEIMS_SUBMISSION', () => {
+    it('does NOT include Government Compliance stages (tracked on Compliance card)', () => {
       const ids = malaysia.stages.map(s => s.id);
-      expect(ids).toContain(STAGE.FEIMS_SUBMISSION);
+      expect(ids).not.toContain(STAGE.PURBA_SWUKRITI);
+      expect(ids).not.toContain(STAGE.FEIMS_SUBMISSION);
+      expect(ids).not.toContain(STAGE.SHRAM_SWUKRITI);
     });
 
     it('starts with REGISTRATION', () => {
@@ -110,9 +109,9 @@ describe('Workflow — Pipelines', () => {
       expect(last.id).toBe(STAGE.POST_DEPARTURE);
     });
 
-    it('PLKS comes before FEIMS_SUBMISSION', () => {
+    it('CALLING_VISA comes before DEPARTURE_PREP', () => {
       const ids = malaysia.stages.map(s => s.id);
-      expect(ids.indexOf(STAGE.PLKS)).toBeLessThan(ids.indexOf(STAGE.FEIMS_SUBMISSION));
+      expect(ids.indexOf(STAGE.CALLING_VISA)).toBeLessThan(ids.indexOf(STAGE.DEPARTURE_PREP));
     });
   });
 
@@ -172,8 +171,9 @@ describe('Workflow — Pipelines', () => {
     it('returns Malaysia pipeline for Malaysia', () => {
       const pipeline = getPipelineForCountry('Malaysia');
       const ids = pipeline.stages.map(s => s.id);
-      expect(ids).toContain(STAGE.PLKS);
+      expect(ids).not.toContain(STAGE.PLKS);
       expect(ids).not.toContain(STAGE.VISA_STAMPING);
+      expect(pipeline).toBe(PIPELINES[REGION.MALAYSIA]);
     });
 
     it('returns null for an unsupported country (fallback is in listPipelineStages, not here)', () => {
@@ -195,10 +195,12 @@ describe('Workflow — Pipelines', () => {
       expect(ids).toContain(STAGE.VISA_STAMPING);
     });
 
-    it('returns Malaysia stages for Malaysia', () => {
+    it('returns Malaysia stages for Malaysia (slimmed — PLKS now on Compliance card)', () => {
       const stages = listPipelineStages('Malaysia');
       const ids = stages.map(s => s.id);
-      expect(ids).toContain(STAGE.PLKS);
+      expect(ids).not.toContain(STAGE.PLKS);
+      expect(ids).not.toContain(STAGE.VISA_STAMPING);
+      expect(ids[0]).toBe(STAGE.REGISTRATION);
     });
 
     it('returns an array of stage objects with id and statuses', () => {

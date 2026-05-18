@@ -204,10 +204,20 @@ describe('pipelines', () => {
     expect(ids).not.toContain(STAGE.PLKS);
   });
 
-  it('Malaysia pipeline contains PLKS but NOT VISA_STAMPING', () => {
+  it('Malaysia pipeline contains neither PLKS nor VISA_STAMPING (tracked in Government Compliance card)', () => {
     const ids = PIPELINES[REGION.MALAYSIA].stages.map(s => s.id);
-    expect(ids).toContain(STAGE.PLKS);
+    expect(ids).not.toContain(STAGE.PLKS);
     expect(ids).not.toContain(STAGE.VISA_STAMPING);
+  });
+
+  it('neither pipeline contains Purba Swukriti, FEIMS Submission, or Shram Swukriti (Government Compliance card stages)', () => {
+    const govtComplianceStages = [STAGE.PURBA_SWUKRITI, STAGE.FEIMS_SUBMISSION, STAGE.SHRAM_SWUKRITI];
+    const gulfIds = PIPELINES[REGION.GULF].stages.map(s => s.id);
+    const malaysiaIds = PIPELINES[REGION.MALAYSIA].stages.map(s => s.id);
+    govtComplianceStages.forEach(stage => {
+      expect(gulfIds).not.toContain(stage);
+      expect(malaysiaIds).not.toContain(stage);
+    });
   });
 
   it('both pipelines start at REGISTRATION and end at POST_DEPARTURE', () => {
@@ -245,7 +255,7 @@ describe('pipelines', () => {
   it('listPipelineStages returns the Malaysia stages for Malaysia', () => {
     const stages = listPipelineStages(COUNTRY.MALAYSIA);
     const ids    = stages.map(s => s.id);
-    expect(ids).toContain(STAGE.PLKS);
+    expect(ids).not.toContain(STAGE.PLKS);
     expect(ids).not.toContain(STAGE.VISA_STAMPING);
   });
 

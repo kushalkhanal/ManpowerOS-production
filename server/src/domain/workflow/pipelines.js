@@ -18,6 +18,12 @@ import {
 } from './stages.js';
 
 // ─── Per-region stage sequences ──────────────────────────────────────────────
+//
+// Note: Purba Swukriti, PLKS / E-Sticker, FEIMS Submission, and Shram Swukriti
+// are issued on government portals and tracked in the Government Compliance
+// card on the candidate workspace page. They are no longer rendered as
+// pipeline stages here. The STAGE constants for them remain in stages.js for
+// legacy candidate status labels.
 
 const GULF_STAGE_IDS = [
   STAGE.REGISTRATION,
@@ -28,10 +34,7 @@ const GULF_STAGE_IDS = [
   STAGE.CALLING_VISA,
   STAGE.COMPLIANCE,
   STAGE.ORIENTATION,
-  STAGE.PURBA_SWUKRITI,
   STAGE.VISA_STAMPING,
-  STAGE.FEIMS_SUBMISSION,
-  STAGE.SHRAM_SWUKRITI,
   STAGE.DEPARTURE_PREP,
   STAGE.POST_DEPARTURE
 ];
@@ -45,10 +48,6 @@ const MALAYSIA_STAGE_IDS = [
   STAGE.CALLING_VISA,
   STAGE.COMPLIANCE,
   STAGE.ORIENTATION,
-  STAGE.PURBA_SWUKRITI,
-  STAGE.PLKS,
-  STAGE.FEIMS_SUBMISSION,
-  STAGE.SHRAM_SWUKRITI,
   STAGE.DEPARTURE_PREP,
   STAGE.POST_DEPARTURE
 ];
