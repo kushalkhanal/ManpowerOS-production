@@ -5,7 +5,7 @@ import StatusChangeModal from '../components/StatusChangeModal';
 import EditPassportModal from '../components/EditPassportModal';
 import EditCandidateSectionModal from '../components/EditCandidateSectionModal';
 import SharedDocumentsPanel from '../components/SharedDocumentsPanel';
-import { ArrowLeft, Pencil, Settings2 } from 'lucide-react';
+import { ArrowLeft, Pencil, Settings2, FileText } from 'lucide-react';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -162,6 +162,24 @@ const PassportDetail = () => {
           )}
         </div>
         <div className="flex gap-2 shrink-0">
+          {passport.candidateId?._id ? (
+            <a
+              href={`/print/cv/${passport.candidateId._id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              <FileText size={12} /> Generate CV
+            </a>
+          ) : (
+            <button
+              disabled
+              title="Link a candidate first to generate a CV"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-gray-400 bg-gray-100 rounded-lg cursor-not-allowed"
+            >
+              <FileText size={12} /> Generate CV
+            </button>
+          )}
           <button
             onClick={() => setShowEditModal(true)}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
@@ -380,6 +398,80 @@ const PassportDetail = () => {
                       <InfoRow label="Branch" value={c?.branchInfo || '—'} />
                     </dl>
                   </div>
+                </div>
+              );
+            })()}
+          </PanelCard>
+
+          {/* ── Physical Attributes (from linked candidate) ── */}
+          <PanelCard
+            title="Physical Attributes"
+            onEdit={passport.candidateId?._id ? () => setEditSection('physical') : undefined}
+          >
+            {(() => {
+              const pa = passport.candidateId?.physicalAttributes || {};
+              return (
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
+                  <InfoRow label="Height"      value={pa.height     || '—'} />
+                  <InfoRow label="Weight"      value={pa.weight     || '—'} />
+                  <InfoRow label="Blood Group" value={pa.bloodGroup || '—'} />
+                  <InfoRow label="Eye Color"   value={pa.eyeColor   || '—'} />
+                  <InfoRow label="Complexion"  value={pa.complexion || '—'} />
+                </dl>
+              );
+            })()}
+          </PanelCard>
+
+          {/* ── Work Experience (from linked candidate) ── */}
+          <PanelCard
+            title="Work Experience"
+            onEdit={passport.candidateId?._id ? () => setEditSection('workHistory') : undefined}
+          >
+            {(() => {
+              const list = passport.candidateId?.workHistory || [];
+              const fmtMonthYear = (d) => {
+                if (!d) return null;
+                try {
+                  return new Date(d).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+                } catch { return null; }
+              };
+
+              if (!list.length) {
+                // Empty state: still show the field labels with em-dash, same look as other sections
+                return (
+                  <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
+                    <InfoRow label="Position" value="—" />
+                    <InfoRow label="Company"  value="—" />
+                    <InfoRow label="Country"  value="—" />
+                    <InfoRow label="Duration" value="—" />
+                  </dl>
+                );
+              }
+
+              return (
+                <div className="space-y-4">
+                  {list.map((w, i) => (
+                    <div key={i}>
+                      {i > 0 && (
+                        <p className="text-[10px] uppercase tracking-wide text-gray-500 font-semibold pb-1 border-b border-gray-100 mb-2 mt-1">
+                          Experience {i + 1}
+                        </p>
+                      )}
+                      <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
+                        <InfoRow label="Position" value={w.position || '—'} />
+                        <InfoRow label="Company"  value={w.company  || '—'} />
+                        <InfoRow label="Country"  value={w.country  || '—'} />
+                        <InfoRow
+                          label="Duration"
+                          value={
+                            (fmtMonthYear(w.fromDate) || '—') +
+                            ' – ' +
+                            (w.isCurrent ? 'Present' : (fmtMonthYear(w.toDate) || '—'))
+                          }
+                        />
+                      </dl>
+                    </div>
+                  ))}
                 </div>
               );
             })()}

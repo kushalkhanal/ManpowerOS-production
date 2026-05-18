@@ -10,13 +10,18 @@ const NEPAL_PROVINCES = [
 ];
 
 const SECTION_TITLES = {
-  address:    'Edit Address Information',
-  bank:       'Edit Bank Account Info',
-  training:   'Edit Training Information',
-  academic:   'Edit Academic Information',
-  nominee:    'Edit Nominee Information',
-  workDetail: 'Edit Work Detail Information',
+  address:     'Edit Address Information',
+  bank:        'Edit Bank Account Info',
+  training:    'Edit Training Information',
+  academic:    'Edit Academic Information',
+  nominee:     'Edit Nominee Information',
+  workDetail:  'Edit Work Detail Information',
+  physical:    'Edit Physical Attributes',
+  workHistory: 'Edit Work Experience',
 };
+
+const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-', 'Unknown'];
+const COMPLEXIONS  = ['Fair', 'Medium', 'Wheatish', 'Dark'];
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
 
@@ -232,6 +237,74 @@ function WorkDetailForm({ state, onChange }) {
   );
 }
 
+function PhysicalAttributesForm({ state, onChange }) {
+  const upd = (field) => e => onChange(prev => ({ ...prev, [field]: e.target.value }));
+  return (
+    <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+      <Input       label="Height"      value={state.height}     onChange={upd('height')}     placeholder="170 cm or 5'7&quot;" />
+      <Input       label="Weight"      value={state.weight}     onChange={upd('weight')}     placeholder="65 kg" />
+      <SelectInput label="Blood Group" value={state.bloodGroup} onChange={upd('bloodGroup')} options={BLOOD_GROUPS} />
+      <Input       label="Eye Color"   value={state.eyeColor}   onChange={upd('eyeColor')}   placeholder="Brown" />
+      <SelectInput label="Complexion"  value={state.complexion} onChange={upd('complexion')} options={COMPLEXIONS} />
+    </div>
+  );
+}
+
+function WorkHistoryForm({ items, onChange }) {
+  const upd = (i, field) => e =>
+    onChange(prev => prev.map((it, idx) => idx === i ? { ...it, [field]: e.target.value } : it));
+
+  const toggleCurrent = (i) => () =>
+    onChange(prev => prev.map((it, idx) => idx === i ? { ...it, isCurrent: !it.isCurrent, toDate: !it.isCurrent ? '' : it.toDate } : it));
+
+  const add = () =>
+    onChange(prev => [...prev, { company: '', position: '', country: '', fromDate: '', toDate: '', isCurrent: false }]);
+
+  const remove = (i) =>
+    onChange(prev => prev.filter((_, idx) => idx !== i));
+
+  return (
+    <div className="space-y-3">
+      {items.length === 0 && (
+        <p className="text-xs text-gray-400 italic">No work history added yet.</p>
+      )}
+      {items.map((it, i) => (
+        <div key={i} className="border border-gray-100 rounded-lg p-3 bg-gray-50/40 relative">
+          <button
+            onClick={() => remove(i)}
+            className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+            title="Remove"
+          >
+            <Trash2 size={13} />
+          </button>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Company"  value={it.company}  onChange={upd(i, 'company')}  placeholder="e.g. Al-Futtaim Construction" />
+            <Input label="Position" value={it.position} onChange={upd(i, 'position')} placeholder="e.g. Mason" />
+            <Input label="Country"  value={it.country}  onChange={upd(i, 'country')}  placeholder="e.g. UAE" />
+            <Input label="From"     value={it.fromDate ? new Date(it.fromDate).toISOString().slice(0, 10) : ''} onChange={upd(i, 'fromDate')} type="date" />
+            <Input
+              label={it.isCurrent ? 'To (current)' : 'To'}
+              value={it.isCurrent ? '' : (it.toDate ? new Date(it.toDate).toISOString().slice(0, 10) : '')}
+              onChange={upd(i, 'toDate')}
+              type="date"
+            />
+            <label className="flex items-center gap-2 mt-5 text-xs text-gray-600 cursor-pointer">
+              <input type="checkbox" checked={!!it.isCurrent} onChange={toggleCurrent(i)} className="h-3.5 w-3.5" />
+              Currently working here
+            </label>
+          </div>
+        </div>
+      ))}
+      <button
+        onClick={add}
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80"
+      >
+        <Plus size={13} /> Add experience
+      </button>
+    </div>
+  );
+}
+
 // ── Main modal ────────────────────────────────────────────────────────────────
 
 export default function EditCandidateSectionModal({ isOpen, section, candidate, onClose, onSuccess }) {
@@ -252,6 +325,10 @@ export default function EditCandidateSectionModal({ isOpen, section, candidate, 
   const [workDetail, setWorkDetail] = useState({
     visaNumber: '', visaIssuedDate: '', visaExpiryDate: '', kdnBpaNo: '', branchInfo: '',
   });
+  const [physical, setPhysical] = useState({
+    height: '', weight: '', bloodGroup: '', eyeColor: '', complexion: '',
+  });
+  const [workHistory, setWorkHistory] = useState([]);
 
   useEffect(() => {
     if (!isOpen || !candidate) return;
@@ -305,6 +382,21 @@ export default function EditCandidateSectionModal({ isOpen, section, candidate, 
       kdnBpaNo:       candidate.kdnBpaNo       ?? '',
       branchInfo:     candidate.branchInfo     ?? '',
     });
+
+    const pa = candidate.physicalAttributes || {};
+    setPhysical({
+      height:     pa.height     ?? '',
+      weight:     pa.weight     ?? '',
+      bloodGroup: pa.bloodGroup ?? '',
+      eyeColor:   pa.eyeColor   ?? '',
+      complexion: pa.complexion ?? '',
+    });
+
+    setWorkHistory(
+      candidate.workHistory?.length
+        ? candidate.workHistory.map(w => ({ ...w }))
+        : []
+    );
   }, [isOpen, section, candidate]);
 
   const handleSave = async () => {
@@ -330,6 +422,19 @@ export default function EditCandidateSectionModal({ isOpen, section, candidate, 
         case 'academic':   payload = { academic };          break;
         case 'nominee':    payload = { nomineeInfo: nominee }; break;
         case 'workDetail': payload = { ...workDetail };    break;
+        case 'physical':   payload = { physicalAttributes: physical }; break;
+        case 'workHistory': {
+          // Strip empty rows so we don't save junk
+          const cleaned = workHistory
+            .filter(w => (w.company || '').trim() || (w.position || '').trim())
+            .map(w => ({
+              ...w,
+              fromDate: w.fromDate || undefined,
+              toDate:   w.isCurrent ? undefined : (w.toDate || undefined),
+            }));
+          payload = { workHistory: cleaned };
+          break;
+        }
       }
       await candidatesApi.updateProfileSection(candidate._id, payload);
       showToast.success('Saved successfully');
@@ -368,7 +473,9 @@ export default function EditCandidateSectionModal({ isOpen, section, candidate, 
           {section === 'training'   && <TrainingForm   items={training}   onChange={setTraining}   />}
           {section === 'academic'   && <AcademicForm   items={academic}   onChange={setAcademic}   />}
           {section === 'nominee'    && <NomineeForm    state={nominee}    onChange={setNominee}    />}
-          {section === 'workDetail' && <WorkDetailForm state={workDetail} onChange={setWorkDetail} />}
+          {section === 'workDetail'  && <WorkDetailForm        state={workDetail}  onChange={setWorkDetail} />}
+          {section === 'physical'    && <PhysicalAttributesForm state={physical}    onChange={setPhysical} />}
+          {section === 'workHistory' && <WorkHistoryForm        items={workHistory} onChange={setWorkHistory} />}
         </div>
 
         {/* Footer */}
