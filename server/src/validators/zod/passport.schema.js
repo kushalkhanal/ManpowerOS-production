@@ -10,9 +10,8 @@ const optionalDate = z.preprocess((value) => {
 const optionalText = (max) => z.union([
   z.string().trim().max(max),
   z.literal(''),
-  z.null(),
-  z.undefined()
-]);
+  z.null()
+]).optional();
 
 // Keep this permissive; only basic length check if provided.
 const phoneSchema = z.union([
@@ -21,9 +20,8 @@ const phoneSchema = z.union([
     .min(7, 'Phone number is too short')
     .max(20, 'Phone number is too long'),
   z.literal(''),
-  z.null(),
-  z.undefined()
-]);
+  z.null()
+]).optional();
 
 const passportBaseSchema = z.object({
   candidateId: z.string().optional().nullable(),
@@ -34,7 +32,7 @@ const passportBaseSchema = z.object({
     .max(20, "Passport number too long")
     .regex(/^[A-Z0-9]+$/, "Passport number must contain only uppercase letters and numbers"),
   guardianNumber: optionalText(30),
-  fullName: z.union([z.string().trim().max(200), z.literal(''), z.null(), z.undefined()]),
+  fullName: z.union([z.string().trim().max(200), z.literal(''), z.null()]).optional(),
   firstName: z.string().trim().max(50).optional().nullable(),
   lastName: z.string().trim().max(50).optional().nullable(),
   dateOfBirth: optionalDate,
