@@ -1,10 +1,19 @@
 import { useState, useEffect } from 'react';
 import { candidatesApi } from '../api';
+import { isValidFileSize, isValidFileType } from '../utils/validation';
+import { useSecureDocUrl } from '../utils/secureDocUrl';
 
 const CallingVisaModal = ({ isOpen, onClose, candidateId, candidateData, demand, onSuccess }) => {
   const [formData, setFormData] = useState({ visaNumber: '', visaReceivedDate: '' });
+  const [visaFile, setVisaFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+
+  const allowedFileTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
+  const maxFileSize = 10 * 1024 * 1024;
+
+  const { url: secureVisaUrl } = useSecureDocUrl(candidateData?.visaFileUrl);
 
   useEffect(() => {
     if (candidateData) {
@@ -13,12 +22,46 @@ const CallingVisaModal = ({ isOpen, onClose, candidateId, candidateData, demand,
         visaReceivedDate: candidateData.visaReceivedDate ? candidateData.visaReceivedDate.split('T')[0] : ''
       });
     }
-  }, [candidateData]);
+    setVisaFile(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+    setErrors({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidateData, isOpen]);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, files } = e.target;
+    if (name === 'visaFile' && files?.length) {
+      const selected = files[0];
+      if (!isValidFileType(selected, allowedFileTypes)) {
+        setErrors(prev => ({ ...prev, visaFile: 'Only JPG, PNG, WEBP, and PDF are allowed' }));
+        return;
+      }
+      if (!isValidFileSize(selected, maxFileSize)) {
+        setErrors(prev => ({ ...prev, visaFile: 'File must be 10MB or smaller' }));
+        return;
+      }
+      setVisaFile(selected);
+      setErrors(prev => ({ ...prev, visaFile: '' }));
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      if (selected.type.startsWith('image/')) {
+        setPreviewUrl(URL.createObjectURL(selected));
+      } else {
+        setPreviewUrl(null);
+      }
+      return;
+    }
     setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+  };
+
+  const handleRemoveFile = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    setVisaFile(null);
+    setErrors(prev => ({ ...prev, visaFile: '' }));
   };
 
   const handleSubmit = async (e) => {
@@ -30,10 +73,13 @@ const CallingVisaModal = ({ isOpen, onClose, candidateId, candidateData, demand,
     setLoading(true);
     setErrors({});
     try {
-      await candidatesApi.update(candidateId, {
+      const payload = {
         visaNumber: formData.visaNumber.trim(),
         visaReceivedDate: formData.visaReceivedDate || undefined
-      });
+      };
+      if (visaFile) payload.visaFile = visaFile;
+
+      await candidatesApi.update(candidateId, payload);
       onSuccess();
       onClose();
     } catch (err) {
@@ -44,6 +90,10 @@ const CallingVisaModal = ({ isOpen, onClose, candidateId, candidateData, demand,
   };
 
   if (!isOpen) return null;
+
+  const existingFileUrl = candidateData?.visaFileUrl;
+  const existingFileName = existingFileUrl ? existingFileUrl.split('/').pop() : null;
+  const existingIsImage = existingFileUrl && /\.(jpg|jpeg|png|webp|gif)$/i.test(existingFileUrl);
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -94,6 +144,78 @@ const CallingVisaModal = ({ isOpen, onClose, candidateId, candidateData, demand,
                   onChange={handleChange}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                 />
+              </div>
+
+              {/* Visa Document Upload */}
+              <div className="border-t border-gray-100 pt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Visa Document</label>
+
+                {existingFileUrl && !visaFile && (
+                  <div className="flex items-center gap-2 mb-2 p-2 bg-green-50 border border-green-200 rounded-md">
+                    {existingIsImage && secureVisaUrl ? (
+                      <img
+                        src={secureVisaUrl}
+                        alt="Visa"
+                        className="h-10 w-10 object-cover rounded border border-green-300 flex-shrink-0"
+                      />
+                    ) : (
+                      <svg className="w-6 h-6 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                    <span className="text-xs text-green-700 font-medium flex-1 truncate">{existingFileName}</span>
+                    {secureVisaUrl && (
+                      <a
+                        href={secureVisaUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-green-700 underline hover:text-green-900 flex-shrink-0"
+                      >
+                        View
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                <input
+                  type="file"
+                  name="visaFile"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  onChange={handleChange}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
+                />
+                {errors.visaFile && <p className="text-red-500 text-xs mt-1">{errors.visaFile}</p>}
+
+                {visaFile && (
+                  <div className="mt-2 flex items-start gap-2 p-2 bg-gray-50 border border-gray-200 rounded-md">
+                    {previewUrl ? (
+                      <img
+                        src={previewUrl}
+                        alt="Preview"
+                        className="h-20 w-20 object-cover rounded-md border border-gray-200 shadow-sm flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="h-20 w-20 flex items-center justify-center bg-white border border-gray-200 rounded-md flex-shrink-0">
+                        <svg className="w-10 h-10 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-700 truncate">{visaFile.name}</p>
+                      <p className="text-[11px] text-gray-500">{(visaFile.size / 1024).toFixed(1)} KB</p>
+                      <button
+                        type="button"
+                        onClick={handleRemoveFile}
+                        className="mt-1 text-[11px] text-red-600 hover:text-red-800 underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-xs text-gray-400 mt-1">Allowed: PDF, JPG, PNG, WEBP (max 10MB)</p>
               </div>
             </form>
             <p className="text-xs text-gray-500 mt-3">

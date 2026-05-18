@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { candidatesApi } from '../api';
 import { isValidFileSize, isValidFileType } from '../utils/validation';
+import { useSecureDocUrl } from '../utils/secureDocUrl';
 
 const VisaModal = ({ isOpen, onClose, candidateId, candidateData, onSuccess }) => {
   const [formData, setFormData] = useState({
@@ -13,11 +14,7 @@ const VisaModal = ({ isOpen, onClose, candidateId, candidateData, onSuccess }) =
   const [errors, setErrors] = useState({});
   const allowedFileTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf', 'image/webp'];
   const maxFileSize = 10 * 1024 * 1024;
-  const resolveFileUrl = (url) => {
-    if (!url) return null;
-    if (url.startsWith('http')) return url;
-    return `${import.meta.env.VITE_SERVER_URL || ''}${url}`;
-  };
+  const { url: secureVisaUrl } = useSecureDocUrl(candidateData?.visaFileUrl);
 
   useEffect(() => {
     if (candidateData) {
@@ -113,9 +110,9 @@ const VisaModal = ({ isOpen, onClose, candidateId, candidateData, onSuccess }) =
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Upload Visa Copy</label>
-                {candidateData?.visaFileUrl && (
+                {candidateData?.visaFileUrl && secureVisaUrl && (
                   <a
-                    href={resolveFileUrl(candidateData.visaFileUrl)}
+                    href={secureVisaUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-1 block text-xs text-primary-600 hover:text-primary-800 underline"
