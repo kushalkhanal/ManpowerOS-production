@@ -44,7 +44,7 @@ import {
 } from "../../domain/workflow";
 import { useAuth } from "../../context/AuthContext";
 import { showToast } from "../../components/ToastProvider";
-import PurbaSwukritiCard from "../../components/PurbaSwukritiCard";
+import ComplianceRecordsCard from "../../components/ComplianceRecordsCard";
 import TradeTestCard from "../../components/TradeTestCard";
 import DocumentVault from "../../components/DocumentVault";
 import MedicalModal from "../../components/MedicalModal";
@@ -55,6 +55,7 @@ import VisaModal from "../../components/VisaModal";
 import FeimsModal from "../../components/FeimsModal";
 import DepartureModal from "../../components/DepartureModal";
 import PassportCollectionModal from "../../components/PassportCollectionModal";
+import SecureLink from "../../components/SecureLink";
 import FeeModal from "../../components/FeeModal";
 import ActivityLogModal from "../../components/ActivityLogModal";
 import FEIMSSummaryModal from "../../components/FEIMSSummaryModal";
@@ -125,14 +126,12 @@ const InfoRow = ({ label, value }) => (
 
 const FileLink = ({ url, label }) =>
   url ? (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
+    <SecureLink
+      storedUrl={url}
       className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
     >
       <FileText size={11} /> {label} <ExternalLink size={9} />
-    </a>
+    </SecureLink>
   ) : null;
 
 const EditBtn = ({ onClick, children = "Edit" }) => (
@@ -179,9 +178,99 @@ const CollapsibleSection = ({
   </div>
 );
 
+// ─── Post-Departure finalize section ──────────────────────────────────────────
+
+const PostDepartureSection = ({ candidate, candidateId, onReload }) => {
+  const [confirming, setConfirming] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const departed = candidate.status === "departed" || !!candidate.departedAt;
+
+  const handleFinalize = async () => {
+    setSaving(true);
+    try {
+      await candidatesApi.markColumnComplete(candidateId, "departure");
+      showToast.success("Candidate marked as Departed");
+      setConfirming(false);
+      onReload?.();
+    } catch (err) {
+      showToast.error(
+        err.response?.data?.message || "Failed to mark as departed",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div>
+      <InfoRow
+        label="Departed"
+        value={fmtDate(candidate.departedAt || candidate.actualDepartureDate)}
+      />
+      <InfoRow
+        label="Status"
+        value={STATUS_LABELS[candidate.status] || candidate.status}
+      />
+      <InfoRow
+        label="Destination"
+        value={candidate.demandCountry || candidate.desiredCountry}
+      />
+
+      <div className="mt-4">
+        {departed ? (
+          <div className="flex items-center gap-2 px-3 py-2.5 bg-emerald-50 border border-emerald-200 rounded-lg">
+            <PlaneTakeoff
+              size={14}
+              className="text-emerald-600 flex-shrink-0"
+            />
+            <p className="text-xs font-semibold text-emerald-800">
+              Departed
+              {candidate.departedAt
+                ? ` on ${fmtDate(candidate.departedAt)}`
+                : ""}{" "}
+              — case closed.
+            </p>
+          </div>
+        ) : (
+          <>
+            <button
+              onClick={() => setConfirming(true)}
+              disabled={saving}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm disabled:opacity-60 transition-colors"
+            >
+              <PlaneTakeoff size={14} />
+              Mark as Departed (finalize)
+            </button>
+            <p className="mt-1.5 text-[11px] text-gray-400 text-center italic">
+              Final step — moves this candidate to the Departed list. Use only
+              once they have actually left.
+            </p>
+          </>
+        )}
+      </div>
+
+      <ConfirmDialog
+        isOpen={confirming}
+        title="Mark as Departed?"
+        message={`This will finalize ${candidate.fullName || "the candidate"} as Departed and move them to the Departed records. This action is the final seal — proceed only if they have actually left.`}
+        confirmLabel={saving ? "Marking…" : "Yes, mark Departed"}
+        cancelLabel="Cancel"
+        onConfirm={handleFinalize}
+        onCancel={() => setConfirming(false)}
+      />
+    </div>
+  );
+};
+
 // ─── Per-stage expanded detail ────────────────────────────────────────────────
 
-const StageDetail = ({ stageId, kanbanData, onEdit, candidateId }) => {
+const StageDetail = ({
+  stageId,
+  kanbanData,
+  onEdit,
+  candidateId,
+  onReload,
+}) => {
   const { candidate, passport, demand, columns } = kanbanData;
   const col = (id) => columns?.find((c) => c.id === id);
   const dofeData = col("dofe")?.data;
@@ -369,13 +458,6 @@ const StageDetail = ({ stageId, kanbanData, onEdit, candidateId }) => {
       );
     }
 
-    case STAGE.PURBA_SWUKRITI:
-      return (
-        <div className="mt-1">
-          <PurbaSwukritiCard demand={demand} candidate={candidate} />
-        </div>
-      );
-
     case STAGE.VISA_STAMPING:
       return (
         <div>
@@ -389,67 +471,6 @@ const StageDetail = ({ stageId, kanbanData, onEdit, candidateId }) => {
           )}
           <div className="mt-3">
             <EditBtn onClick={() => onEdit("visa")}>Update visa</EditBtn>
-          </div>
-        </div>
-      );
-
-    case STAGE.PLKS:
-      return (
-        <div>
-          <InfoRow label="VLN / VDR No." value={candidate.vlnNumber} />
-          <InfoRow
-            label="VLN received"
-            value={fmtDate(candidate.vlnReceivedDate)}
-          />
-          <InfoRow label="PLKS No." value={candidate.plksNumber} />
-          <InfoRow
-            label="PLKS issued"
-            value={fmtDate(candidate.plksIssuedDate)}
-          />
-          <InfoRow
-            label="PLKS expiry"
-            value={fmtDate(candidate.plksExpiryDate)}
-          />
-          <InfoRow label="E-Sticker No." value={candidate.eStickerNumber} />
-          <div className="mt-2 flex flex-wrap gap-3">
-            <FileLink url={candidate.vlnFileUrl} label="VLN file" />
-            <FileLink url={candidate.plksFileUrl} label="PLKS file" />
-          </div>
-        </div>
-      );
-
-    case STAGE.FEIMS_SUBMISSION:
-      return (
-        <div>
-          <InfoRow
-            label="FEIMS submitted"
-            value={fmtDate(candidate.feimsSubmittedAt)}
-          />
-          <InfoRow label="Reg. No." value={candidate.feimsRegistrationNumber} />
-          <InfoRow label="E-Sticker No." value={candidate.eStickerNumber} />
-          {candidate.feimsFileUrl && (
-            <div className="mt-2">
-              <FileLink url={candidate.feimsFileUrl} label="FEIMS document" />
-            </div>
-          )}
-          <div className="mt-3">
-            <EditBtn onClick={() => onEdit("dofe")}>Update FEIMS</EditBtn>
-          </div>
-        </div>
-      );
-
-    case STAGE.SHRAM_SWUKRITI:
-      return (
-        <div>
-          <InfoRow
-            label="Shram Swukriti No."
-            value={candidate.shramSwikritiNumber}
-          />
-          <InfoRow label="Issued" value={fmtDate(candidate.shramIssuedDate)} />
-          <div className="mt-3">
-            <EditBtn onClick={() => onEdit("dofe")}>
-              Update Shram Swukriti
-            </EditBtn>
           </div>
         </div>
       );
@@ -476,20 +497,11 @@ const StageDetail = ({ stageId, kanbanData, onEdit, candidateId }) => {
 
     case STAGE.POST_DEPARTURE:
       return (
-        <div>
-          <InfoRow
-            label="Departed"
-            value={fmtDate(candidate.actualDepartureDate)}
-          />
-          <InfoRow
-            label="Status"
-            value={STATUS_LABELS[candidate.status] || candidate.status}
-          />
-          <InfoRow
-            label="Destination"
-            value={candidate.demandCountry || candidate.desiredCountry}
-          />
-        </div>
+        <PostDepartureSection
+          candidate={candidate}
+          candidateId={candidateId}
+          onReload={onReload}
+        />
       );
 
     default:
@@ -518,6 +530,7 @@ const StageRow = ({
   kanbanData,
   onOpenModal,
   candidateId,
+  onReload,
 }) => {
   const Icon = STAGE_ICONS[stage.id] || Clock;
   const { candidate } = kanbanData;
@@ -600,6 +613,7 @@ const StageRow = ({
               kanbanData={kanbanData}
               onEdit={onOpenModal}
               candidateId={candidateId}
+              onReload={onReload}
             />
           </div>
         </div>
@@ -1257,6 +1271,7 @@ const CandidateWorkspacePage = () => {
                   kanbanData={kanbanData}
                   onOpenModal={openModal}
                   candidateId={id}
+                  onReload={loadKanban}
                 />
               ))}
             </div>
@@ -1354,6 +1369,21 @@ const CandidateWorkspacePage = () => {
             ) : (
               <p className="mt-3 text-sm text-gray-500">No passport linked.</p>
             )}
+          </CollapsibleSection>
+
+          <CollapsibleSection
+            title="Government Compliance"
+            badge={candidate?.purbaSwukritiDone ? "✓" : undefined}
+            badgeColor="bg-sky-100 text-sky-700"
+            expanded={expandedPanels.compliance}
+            onToggle={() => togglePanel("compliance")}
+          >
+            <div className="mt-3">
+              <ComplianceRecordsCard
+                candidate={candidate}
+                onUpdated={loadKanban}
+              />
+            </div>
           </CollapsibleSection>
 
           <CollapsibleSection
