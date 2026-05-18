@@ -1537,13 +1537,21 @@ export default {
 
     logger.info(`[updateProfileSection] candidate=${req.params.id} keys=${Object.keys(updates).join(',')}`);
 
-    const candidate = await Candidate.findOneAndUpdate(
-      scopeFilter(req, { _id: req.params.id }),
-      { $set: updates },
-      { new: true, runValidators: false }
-    );
-
+    // Use findOne + save instead of findOneAndUpdate so Mongoose properly casts
+    // subdocument schemas (physicalAttributes, workHistory) and triggers any
+    // necessary middleware. findOneAndUpdate with $set on a typed subdocument
+    // can silently lose data if the cast fails.
+    const candidate = await Candidate.findOne(scopeFilter(req, { _id: req.params.id }));
     if (!candidate) return res.status(404).json({ message: 'Candidate not found' });
+
+    Object.assign(candidate, updates);
+
+    // Mongoose can't always detect nested subdocument changes via Object.assign
+    // — explicit markModified guarantees the write hits MongoDB.
+    if (updates.physicalAttributes) candidate.markModified('physicalAttributes');
+    if (updates.workHistory) candidate.markModified('workHistory');
+
+    await candidate.save({ validateBeforeSave: false });
 
     if (updates.physicalAttributes) {
       logger.info(`[updateProfileSection] saved physicalAttributes=${JSON.stringify(candidate.physicalAttributes)}`);
