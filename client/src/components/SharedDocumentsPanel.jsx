@@ -38,6 +38,18 @@ const DOCUMENT_TYPES = [
     label: 'Passport Photo',
     icon: '📷',
     accept: 'image/*'
+  },
+  {
+    key: 'mrp',
+    label: 'MRP Photo',
+    icon: '🆔',
+    accept: 'image/*,application/pdf'
+  },
+  {
+    key: 'financial',
+    label: 'Financial Doc',
+    icon: '💰',
+    accept: 'image/*,application/pdf'
   }
 ];
 

@@ -3,6 +3,7 @@ import { Check, X, Upload, ExternalLink, RefreshCw } from 'lucide-react';
 import { sharedDocumentsApi, candidatesApi, jobDemandApi } from '../api';
 import { getRegionForCountry, REGION } from '../domain/workflow';
 import { isValidFileSize, isValidFileType } from '../utils/validation';
+import SecureLink from './SecureLink';
 
 // ─── Document spec ────────────────────────────────────────────────────────────
 // Three upload kinds (`source`):
@@ -17,6 +18,8 @@ import { isValidFileSize, isValidFileType } from '../utils/validation';
 const COMMON_DOCS = [
   { id: 'passportScan',    label: 'Passport scan',           category: 'Identity',    source: 'shared',    docType: 'passport' },
   { id: 'passportPhoto',   label: 'Passport photo',          category: 'Identity',    source: 'shared',    docType: 'photo' },
+  { id: 'mrpPhoto',        label: 'MRP photo',               category: 'Identity',    source: 'shared',    docType: 'mrp' },
+  { id: 'financialDoc',    label: 'Financial document',      category: 'Compliance',  source: 'shared',    docType: 'financial' },
   { id: 'medicalReport',   label: 'Medical fitness report',  category: 'Medical',     source: 'shared',    docType: 'medical' },
   { id: 'orientationCert', label: 'Orientation certificate', category: 'Orientation', source: 'shared',    docType: 'orientation' },
   { id: 'insuranceReceipt',label: 'Insurance receipt',       category: 'Compliance',  source: null,
@@ -50,6 +53,8 @@ function resolveDocUrls(kanbanData, sharedDocs) {
   return {
     passportScan:          sharedDocs?.passportFile?.url    || passport?.scannedImageUrl           || null,
     passportPhoto:         sharedDocs?.photoFile?.url                                              || null,
+    mrpPhoto:              sharedDocs?.mrpFile?.url                                                || null,
+    financialDoc:          sharedDocs?.financialFile?.url                                          || null,
     medicalReport:         sharedDocs?.medicalFile?.url     || med?.reportFileUrl                  || null,
     orientationCert:       sharedDocs?.orientationFile?.url || dofe?.orientation?.certificateFileUrl || null,
     insuranceReceipt:      ins?.insurancePaidReceiptUrl                                            || null,
@@ -121,16 +126,12 @@ const DocRow = ({ spec, url, uploading, error, onUpload, demand }) => {
 
         {/* Actions */}
         <div className="flex items-center gap-3 flex-shrink-0">
-          {url && (
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
-            >
-              View <ExternalLink size={9} />
-            </a>
-          )}
+          <SecureLink
+            storedUrl={url}
+            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+          >
+            View <ExternalLink size={9} />
+          </SecureLink>
 
           {isUploadable && (
             <>
