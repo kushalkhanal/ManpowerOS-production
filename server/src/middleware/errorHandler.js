@@ -1,5 +1,5 @@
-import logger from '../config/logger.js';
-import AppError from '../utils/AppError.js';
+import logger from "../config/logger.js";
+import AppError from "../utils/AppError.js";
 
 /**
  * Global Express error handler.
@@ -16,8 +16,8 @@ import AppError from '../utils/AppError.js';
  *   - Fallback 500
  */
 const errorHandler = (err, req, res, next) => {
-  const isProduction = process.env.NODE_ENV === 'production';
-  
+  const isProduction = process.env.NODE_ENV === "production";
+
   // Always log the error with details
   logger.error({
     message: err.message,
@@ -29,7 +29,7 @@ const errorHandler = (err, req, res, next) => {
     userRole: req.user?.role,
     statusCode: err.statusCode || 500,
     errorName: err.name,
-    errorCode: err.code
+    errorCode: err.code,
   });
 
   // Operational error thrown deliberately with AppError
@@ -37,32 +37,32 @@ const errorHandler = (err, req, res, next) => {
     return res.status(err.statusCode).json({
       success: false,
       message: err.message,
-      errors: []
+      errors: [],
     });
   }
 
   // Mongoose validation error
-  if (err.name === 'ValidationError') {
-    const errors = Object.values(err.errors).map(e => ({
+  if (err.name === "ValidationError") {
+    const errors = Object.values(err.errors).map((e) => ({
       field: e.path,
-      message: e.message
+      message: e.message,
     }));
     return res.status(400).json({
       success: false,
-      message: 'Validation failed',
-      errors
+      message: "Validation failed",
+      errors,
     });
   }
 
   // Mongoose duplicate key
   if (err.code === 11000) {
     const keyValue = err.keyValue || {};
-    const fields = Object.keys(keyValue).filter(k => k !== 'agencyId');
-    const field = fields[0] || Object.keys(keyValue)[0] || 'field';
+    const fields = Object.keys(keyValue).filter((k) => k !== "agencyId");
+    const field = fields[0] || Object.keys(keyValue)[0] || "field";
     const value = keyValue[field];
     const label = field
-      .replace(/([A-Z])/g, ' $1')
-      .replace(/^./, s => s.toUpperCase())
+      .replace(/([A-Z])/g, " $1")
+      .replace(/^./, (s) => s.toUpperCase())
       .trim();
     const message = value
       ? `${label} '${value}' already exists`
@@ -70,66 +70,72 @@ const errorHandler = (err, req, res, next) => {
     return res.status(409).json({
       success: false,
       message,
-      errors: [{ field, message }]
+      errors: [{ field, message }],
     });
   }
 
   // Mongoose invalid ObjectId
-  if (err.name === 'CastError') {
+  if (err.name === "CastError") {
     return res.status(400).json({
       success: false,
       message: `Invalid ID format: ${err.value}`,
-      errors: []
+      errors: [],
     });
   }
 
   // JWT errors
-  if (err.name === 'JsonWebTokenError') {
-    return res.status(401).json({ success: false, message: 'Invalid token', errors: [] });
+  if (err.name === "JsonWebTokenError") {
+    return res
+      .status(401)
+      .json({ success: false, message: "Invalid token", errors: [] });
   }
-  if (err.name === 'TokenExpiredError') {
-    return res.status(401).json({ success: false, message: 'Token expired', errors: [] });
+  if (err.name === "TokenExpiredError") {
+    return res
+      .status(401)
+      .json({ success: false, message: "Token expired", errors: [] });
   }
 
   // Multer file size error
-  if (err.code === 'LIMIT_FILE_SIZE') {
+  if (err.code === "LIMIT_FILE_SIZE") {
     return res.status(400).json({
       success: false,
-      message: 'File too large. Maximum size is 10MB',
-      errors: []
+      message: "File too large. Maximum size is 10MB",
+      errors: [],
     });
   }
 
   // Multer unexpected field
-  if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+  if (err.code === "LIMIT_UNEXPECTED_FILE") {
     return res.status(400).json({
       success: false,
-      message: 'Unexpected file field in upload',
-      errors: []
+      message: "Unexpected file field in upload",
+      errors: [],
     });
   }
 
   // Unknown/programming errors — don't leak details in production
   const statusCode = err.statusCode || 500;
-  
+
   if (statusCode === 500 && isProduction) {
     // Log extra details for 500 errors in production for debugging
     logger.error({
-      message: 'Unhandled 500 error details',
+      message: "Unhandled 500 error details",
       errorType: err.constructor.name,
       stack: err.stack,
       url: req.originalUrl,
-      method: req.method
+      method: req.method,
     });
   }
-  
+
   return res.status(statusCode).json({
     success: false,
     message: isProduction
-      ? 'Internal server error'
-      : err.message || 'Internal server error',
+      ? "Internal server error"
+      : err.message || "Internal server error",
     errors: [], // Always include errors array for consistency
-    ...(isProduction ? {} : { errorType: err.constructor.name, stack: err.stack })
+    ...(isProduction
+      ? {}
+      : { errorType: err.constructor.name, stack: err.stack }),
   });
 };
 

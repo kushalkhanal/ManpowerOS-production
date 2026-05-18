@@ -1,33 +1,37 @@
-import multer from 'multer';
-import { v2 as cloudinary } from 'cloudinary';
-import path from 'path';
-import fs from 'fs';
-import logger from '../config/logger.js';
+import multer from "multer";
+import { v2 as cloudinary } from "cloudinary";
+import path from "path";
+import fs from "fs";
+import logger from "../config/logger.js";
 
 // Conditionally import CloudinaryStorage only if configured
 let CloudinaryStorage;
 try {
-  const pkg = await import('multer-storage-cloudinary');
+  const pkg = await import("multer-storage-cloudinary");
   CloudinaryStorage = pkg.CloudinaryStorage || pkg.default;
 } catch (error) {
-  logger.warn('multer-storage-cloudinary not available, using local storage only');
+  logger.warn(
+    "multer-storage-cloudinary not available, using local storage only",
+  );
 }
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 const isCloudinaryConfigured = () => {
-  return process.env.CLOUDINARY_CLOUD_NAME && 
-         process.env.CLOUDINARY_API_KEY && 
-         process.env.CLOUDINARY_API_SECRET;
+  return (
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET
+  );
 };
 
 const buildAgencySegment = (req) => {
-  const raw = req.user?.agencyId?.toString() || 'unknown';
-  return raw.replace(/[^a-zA-Z0-9_-]/g, '');
+  const raw = req.user?.agencyId?.toString() || "unknown";
+  return raw.replace(/[^a-zA-Z0-9_-]/g, "");
 };
 
 const ensureDirExists = (dirPath) => {
@@ -38,42 +42,51 @@ const ensureDirExists = (dirPath) => {
 
 const localStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(process.cwd(), 'uploads', 'orientation');
+    const uploadDir = path.join(process.cwd(), "uploads", "orientation");
     ensureDirExists(uploadDir);
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
-    cb(null, `orientation_cert_${req.params.id || 'new'}_${uniqueSuffix}${path.extname(file.originalname)}`);
-  }
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(
+      null,
+      `orientation_cert_${req.params.id || "new"}_${uniqueSuffix}${path.extname(file.originalname)}`,
+    );
+  },
 });
 
 const passportScanLocalStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(process.cwd(), 'uploads', 'passports', 'scans');
+    const uploadDir = path.join(process.cwd(), "uploads", "passports", "scans");
     ensureDirExists(uploadDir);
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
-    const ext = file.mimetype.split('/')[1] || 'bin';
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const ext = file.mimetype.split("/")[1] || "bin";
     cb(null, `passport_scan_${uniqueSuffix}.${ext}`);
-  }
+  },
 });
 
 const localFileFilter = (req, file, cb) => {
-  const allowed = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'application/pdf'];
+  const allowed = [
+    "image/jpeg",
+    "image/png",
+    "image/jpg",
+    "image/webp",
+    "application/pdf",
+  ];
   if (allowed.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Only PDF and images (JPG, PNG, WebP) allowed'), false);
+    cb(new Error("Only PDF and images (JPG, PNG, WebP) allowed"), false);
   }
 };
 
 const localUpload = multer({
   storage: localStorage,
   limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: localFileFilter
+  fileFilter: localFileFilter,
 });
 
 // Cloudinary storage (only if configured and available)
@@ -87,12 +100,12 @@ if (CloudinaryStorage && isCloudinaryConfigured()) {
       const agencyId = buildAgencySegment(req);
       return {
         folder: `manpoweros/${agencyId}/orientation`,
-        allowed_formats: ['pdf', 'jpg', 'jpeg', 'png'],
-        public_id: `orientation_cert_${req.params.id || 'new'}_${Date.now()}`,
-        resource_type: 'auto',
-        transformation: [{ quality: 'auto', fetch_format: 'auto' }]
+        allowed_formats: ["pdf", "jpg", "jpeg", "png"],
+        public_id: `orientation_cert_${req.params.id || "new"}_${Date.now()}`,
+        resource_type: "auto",
+        transformation: [{ quality: "auto", fetch_format: "auto" }],
       };
-    }
+    },
   });
 
   passportScanStorage = new CloudinaryStorage({
@@ -101,12 +114,12 @@ if (CloudinaryStorage && isCloudinaryConfigured()) {
       const agencyId = buildAgencySegment(req);
       return {
         folder: `manpoweros/${agencyId}/passports`,
-        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'pdf'],
+        allowed_formats: ["jpg", "jpeg", "png", "webp", "pdf"],
         public_id: `passport_scan_${Date.now()}`,
-        resource_type: 'auto',
-        transformation: [{ quality: 'auto', fetch_format: 'auto' }]
+        resource_type: "auto",
+        transformation: [{ quality: "auto", fetch_format: "auto" }],
       };
-    }
+    },
   });
 }
 
@@ -116,67 +129,69 @@ export const uploadOrientationCert = multer({
   storage: orientationCertStorage,
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+    const allowed = ["image/jpeg", "image/png", "image/jpg", "application/pdf"];
     if (allowed.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only PDF and images allowed'), false);
+      cb(new Error("Only PDF and images allowed"), false);
     }
-  }
+  },
 });
 
 export const uploadAttendanceSheet = multer({
   storage: isCloudinaryConfigured() ? orientationCertStorage : localStorage,
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+    const allowed = ["image/jpeg", "image/png", "image/jpg", "application/pdf"];
     if (allowed.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only PDF and images allowed'), false);
+      cb(new Error("Only PDF and images allowed"), false);
     }
-  }
+  },
 });
 
 export const deleteCloudinaryFile = async (publicId) => {
   if (!publicId || !isCloudinaryConfigured()) return;
   try {
-    await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
+    await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
   } catch (error) {
     try {
-      await cloudinary.uploader.destroy(publicId, { resource_type: 'raw' });
+      await cloudinary.uploader.destroy(publicId, { resource_type: "raw" });
     } catch (rawError) {
-      logger.error('Cloudinary delete error:', rawError);
+      logger.error("Cloudinary delete error:", rawError);
     }
   }
 };
 
 const stripFileExtension = (value) => {
-  const lastDotIndex = value.lastIndexOf('.');
+  const lastDotIndex = value.lastIndexOf(".");
   if (lastDotIndex === -1) return value;
   return value.slice(0, lastDotIndex);
 };
 
 export const getPublicIdFromUrl = (url) => {
-  if (!url || !url.includes('cloudinary.com')) return null;
+  if (!url || !url.includes("cloudinary.com")) return null;
   try {
     const { pathname } = new URL(url);
-    const uploadMarker = '/upload/';
+    const uploadMarker = "/upload/";
     const markerIndex = pathname.indexOf(uploadMarker);
     if (markerIndex === -1) return null;
 
     const afterUpload = pathname.slice(markerIndex + uploadMarker.length);
-    const segments = afterUpload.split('/').filter(Boolean);
+    const segments = afterUpload.split("/").filter(Boolean);
     if (segments.length === 0) return null;
 
     const first = segments[0];
     const versionPrefixed = /^v\d+$/;
-    const contentSegments = versionPrefixed.test(first) ? segments.slice(1) : segments;
+    const contentSegments = versionPrefixed.test(first)
+      ? segments.slice(1)
+      : segments;
     if (contentSegments.length === 0) return null;
 
     const lastIndex = contentSegments.length - 1;
     contentSegments[lastIndex] = stripFileExtension(contentSegments[lastIndex]);
-    return contentSegments.join('/');
+    return contentSegments.join("/");
   } catch (error) {
     return null;
   }
@@ -186,25 +201,25 @@ export const uploadPassportScan = multer({
   storage: passportScanStorage,
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const allowed = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
     if (allowed.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only JPG, JPEG, PNG, and WebP images allowed'), false);
+      cb(new Error("Only JPG, JPEG, PNG, and WebP images allowed"), false);
     }
-  }
+  },
 });
 
 export const agencyLogoStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(process.cwd(), 'uploads', 'logos');
+    const uploadDir = path.join(process.cwd(), "uploads", "logos");
     ensureDirExists(uploadDir);
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
     cb(null, `agency_logo_${uniqueSuffix}${path.extname(file.originalname)}`);
-  }
+  },
 });
 
 // Agency logo storage
@@ -216,12 +231,12 @@ if (CloudinaryStorage && isCloudinaryConfigured()) {
       const agencyId = buildAgencySegment(req);
       return {
         folder: `manpoweros/${agencyId}/logos`,
-        allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+        allowed_formats: ["jpg", "jpeg", "png", "webp"],
         public_id: `agency_logo_${Date.now()}`,
-        resource_type: 'image',
-        transformation: [{ quality: 'auto', fetch_format: 'auto' }]
+        resource_type: "image",
+        transformation: [{ quality: "auto", fetch_format: "auto" }],
       };
-    }
+    },
   });
 }
 
@@ -229,13 +244,13 @@ export const uploadAgencyLogo = multer({
   storage: agencyLogoCloudStorage,
   limits: { fileSize: 2 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    const allowed = ["image/jpeg", "image/png", "image/jpg", "image/webp"];
     if (allowed.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only JPG, PNG and WebP images allowed'), false);
+      cb(new Error("Only JPG, PNG and WebP images allowed"), false);
     }
-  }
+  },
 });
 
 /**
@@ -247,7 +262,7 @@ export const createDocumentUpload = (folder, options = {}) => {
   const { fileSize = 10 * 1024 * 1024 } = options;
 
   const resolveFolder = (fieldname) =>
-    typeof folder === 'function' ? folder(fieldname) : folder;
+    typeof folder === "function" ? folder(fieldname) : folder;
 
   let storage;
 
@@ -259,9 +274,9 @@ export const createDocumentUpload = (folder, options = {}) => {
         const resolved = resolveFolder(file.fieldname);
         return {
           folder: `manpoweros/${agencyId}/${resolved}`,
-          allowed_formats: ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
-          public_id: `${resolved.replace(/\//g, '_')}_${Date.now()}_${Math.round(Math.random() * 1e9)}`,
-          resource_type: 'auto',
+          allowed_formats: ["pdf", "jpg", "jpeg", "png", "webp"],
+          public_id: `${resolved.replace(/\//g, "_")}_${Date.now()}_${Math.round(Math.random() * 1e9)}`,
+          resource_type: "auto",
         };
       },
     });
@@ -269,7 +284,7 @@ export const createDocumentUpload = (folder, options = {}) => {
     storage = multer.diskStorage({
       destination: (req, file, cb) => {
         const resolved = resolveFolder(file.fieldname);
-        const uploadDir = path.join(process.cwd(), 'uploads', resolved);
+        const uploadDir = path.join(process.cwd(), "uploads", resolved);
         ensureDirExists(uploadDir);
         cb(null, uploadDir);
       },
@@ -286,11 +301,18 @@ export const createDocumentUpload = (folder, options = {}) => {
     if (allowed.test(ext) && allowed.test(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only JPG, PNG, WEBP, and PDF files are allowed'), false);
+      cb(new Error("Only JPG, PNG, WEBP, and PDF files are allowed"), false);
     }
   };
 
   return multer({ storage, limits: { fileSize }, fileFilter });
 };
 
-export default { uploadOrientationCert, uploadAttendanceSheet, deleteCloudinaryFile, isCloudinaryConfigured, uploadPassportScan, passportScanStorage };
+export default {
+  uploadOrientationCert,
+  uploadAttendanceSheet,
+  deleteCloudinaryFile,
+  isCloudinaryConfigured,
+  uploadPassportScan,
+  passportScanStorage,
+};
