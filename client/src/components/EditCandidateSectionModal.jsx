@@ -151,7 +151,20 @@ function AcademicForm({ items, onChange }) {
         <div key={i} className="bg-gray-50/60 border border-gray-100 rounded-lg p-3 space-y-3">
           <div className="flex gap-3">
             <div className="flex-1 grid grid-cols-2 gap-3">
-              <Input label="Qualification"    value={a.qualification}      onChange={upd(i, 'qualification')} />
+              <SelectInput
+                label="Qualification"
+                value={a.qualification}
+                onChange={upd(i, 'qualification')}
+                options={[
+                  'Uneducated',
+                  'Basic Education',
+                  'Class 8',
+                  'Class 10 (SLC)',
+                  'Class 12 / Higher Secondary',
+                  'Bachelor',
+                  'Master',
+                ]}
+              />
               <Input label="Institution Name" value={a.institutionName}    onChange={upd(i, 'institutionName')} />
               <div className="col-span-2">
                 <Input label="Institution Address" value={a.institutionAddress} onChange={upd(i, 'institutionAddress')} />
@@ -436,13 +449,7 @@ export default function EditCandidateSectionModal({ isOpen, section, candidate, 
           break;
         }
       }
-      console.log('[EditCandidateSectionModal] section=', section, 'candidate._id=', candidate._id);
-      console.log('[EditCandidateSectionModal] PAYLOAD SENT:', JSON.stringify(payload, null, 2));
-      const resp = await candidatesApi.updateProfileSection(candidate._id, payload);
-      console.log('[EditCandidateSectionModal] RAW RESPONSE:', resp);
-      console.log('[EditCandidateSectionModal] response.data:', resp?.data);
-      console.log('[EditCandidateSectionModal] response.data.candidate.physicalAttributes:', resp?.data?.candidate?.physicalAttributes);
-      console.log('[EditCandidateSectionModal] response.data.candidate.workHistory:', resp?.data?.candidate?.workHistory);
+      await candidatesApi.updateProfileSection(candidate._id, payload);
       showToast.success('Saved successfully');
       onSuccess();
       onClose();

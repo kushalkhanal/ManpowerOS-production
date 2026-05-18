@@ -13,6 +13,7 @@ import {
   candidateUpdateSchema,
 } from "../validators/zod/candidate.schema.js";
 import { createDocumentUpload } from "../middleware/upload.js";
+import { sensitiveOperationRateLimiter } from "../middleware/rateLimiter.js";
 
 const router = express.Router();
 const upload = createDocumentUpload("documents");
@@ -27,6 +28,7 @@ router.get(
 );
 router.post(
   "/export-batch",
+  sensitiveOperationRateLimiter,
   authorize("admin", "manager", "superadmin"),
   candidateController.exportBatch,
 );
@@ -73,6 +75,7 @@ router.patch(
 );
 router.patch(
   "/bulk-status",
+  sensitiveOperationRateLimiter,
   checkEditAccess,
   candidateController.bulkUpdateStatus,
 );
@@ -107,6 +110,6 @@ router.patch(
   validateZod(candidateUpdateSchema),
   candidateController.updateCandidate,
 );
-router.delete("/:id", checkDeleteAccess, candidateController.deleteCandidate);
+router.delete("/:id", sensitiveOperationRateLimiter, checkDeleteAccess, candidateController.deleteCandidate);
 
 export default router;

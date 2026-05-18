@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { usePassports } from '../hooks/usePassports';
+import { passportApi as passportsApi } from '../api';
 import StatusChangeModal from '../components/StatusChangeModal';
 import EditPassportModal from '../components/EditPassportModal';
 import EditCandidateSectionModal from '../components/EditCandidateSectionModal';
 import SharedDocumentsPanel from '../components/SharedDocumentsPanel';
-import { ArrowLeft, Pencil, Settings2, FileText } from 'lucide-react';
+import { ArrowLeft, Pencil, Settings2, FileText, Loader2 } from 'lucide-react';
+import { showToast } from '../components/ToastProvider';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -57,7 +59,7 @@ function InfoRow({ label, value, mono = false }) {
   );
 }
 
-function PanelCard({ title, children, onEdit }) {
+function PanelCard({ title, children, onEdit, editLoading = false }) {
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
       {title && (
@@ -66,9 +68,13 @@ function PanelCard({ title, children, onEdit }) {
           {onEdit && (
             <button
               onClick={onEdit}
-              className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
+              disabled={editLoading}
+              className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={editLoading ? 'Preparing…' : 'Edit'}
             >
-              <Pencil size={12} />
+              {editLoading
+                ? <Loader2 size={12} className="animate-spin" />
+                : <Pencil size={12} />}
             </button>
           )}
         </div>
@@ -85,23 +91,41 @@ const PassportDetail = () => {
   const { getPassportById, loading } = usePassports();
   const [passport, setPassport]     = useState(null);
   const [logs, setLogs]             = useState([]);
-  const [showStatusModal, setShowStatusModal] = useState(false);
-  const [showEditModal,   setShowEditModal]   = useState(false);
-  const [editSection,     setEditSection]     = useState(null);
-  const [searchParams, setSearchParams]       = useSearchParams();
+  const [showStatusModal,    setShowStatusModal]    = useState(false);
+  const [showEditModal,      setShowEditModal]      = useState(false);
+  const [editSection,        setEditSection]        = useState(null);
+  const [ensuringCandidate,  setEnsuringCandidate]  = useState(false);
+  const [searchParams, setSearchParams]             = useSearchParams();
 
   const loadPassport = async () => {
     try {
       const data = await getPassportById(id);
-      console.log('[PassportDetail] REFETCHED passport.candidateId:', data?.passport?.candidateId);
-      console.log('[PassportDetail] REFETCHED physicalAttributes:', data?.passport?.candidateId?.physicalAttributes);
-      console.log('[PassportDetail] REFETCHED workHistory:', data?.passport?.candidateId?.workHistory);
       setPassport(data.passport);
       setLogs(data.logs || []);
     } catch (err) {
       console.error('Error loading passport:', err);
     }
   };
+
+  // Opens a profile-section edit modal. If this passport has no linked candidate
+  // yet (pool passport before allocation), auto-creates a stub first so editing
+  // works before the passport is matched to a demand.
+  const openSection = useCallback(async (section) => {
+    if (passport?.candidateId?._id) {
+      setEditSection(section);
+      return;
+    }
+    setEnsuringCandidate(true);
+    try {
+      const updatedPassport = await passportsApi.ensureCandidate(id);
+      setPassport(updatedPassport.data ?? updatedPassport);
+      setEditSection(section);
+    } catch (err) {
+      showToast.error(err.response?.data?.message || 'Failed to prepare candidate profile. Please try again.');
+    } finally {
+      setEnsuringCandidate(false);
+    }
+  }, [passport, id]);
 
   useEffect(() => { loadPassport(); }, [id]);
 
@@ -176,11 +200,24 @@ const PassportDetail = () => {
             </a>
           ) : (
             <button
-              disabled
-              title="Link a candidate first to generate a CV"
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-gray-400 bg-gray-100 rounded-lg cursor-not-allowed"
+              disabled={ensuringCandidate}
+              onClick={async () => {
+                setEnsuringCandidate(true);
+                try {
+                  const res = await passportsApi.ensureCandidate(id);
+                  const updated = res.data ?? res;
+                  setPassport(updated);
+                  window.open(`/print/cv/${updated.candidateId._id}`, '_blank');
+                } catch (err) {
+                  console.error('Failed to ensure candidate for CV:', err);
+                } finally {
+                  setEnsuringCandidate(false);
+                }
+              }}
+              title="Generate CV"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-60 disabled:cursor-wait"
             >
-              <FileText size={12} /> Generate CV
+              <FileText size={12} /> {ensuringCandidate ? 'Please wait…' : 'Generate CV'}
             </button>
           )}
           <button
@@ -232,7 +269,7 @@ const PassportDetail = () => {
           </PanelCard>
 
           {/* ── Permanent & Temporary Address ── */}
-          <PanelCard title="Address Information" onEdit={() => setEditSection('address')}>
+          <PanelCard title="Address Information" onEdit={() => openSection('address')} editLoading={ensuringCandidate}>
             <div className="grid grid-cols-2 gap-x-6 gap-y-0">
               {/* Permanent */}
               <div>
@@ -262,7 +299,7 @@ const PassportDetail = () => {
           </PanelCard>
 
           {/* ── Bank Info ── */}
-          <PanelCard title="Bank Account Info" onEdit={() => setEditSection('bank')}>
+          <PanelCard title="Bank Account Info" onEdit={() => openSection('bank')} editLoading={ensuringCandidate}>
             {(() => {
               const b = passport.candidateId?.bankInfo;
               return (
@@ -277,7 +314,7 @@ const PassportDetail = () => {
           </PanelCard>
 
           {/* ── Training Information ── */}
-          <PanelCard title="Training Information" onEdit={() => setEditSection('training')}>
+          <PanelCard title="Training Information" onEdit={() => openSection('training')} editLoading={ensuringCandidate}>
             {(() => {
               const list = passport.candidateId?.training;
               if (!list?.length) return (
@@ -297,7 +334,7 @@ const PassportDetail = () => {
           </PanelCard>
 
           {/* ── Academic Information ── */}
-          <PanelCard title="Academic Information" onEdit={() => setEditSection('academic')}>
+          <PanelCard title="Academic Information" onEdit={() => openSection('academic')} editLoading={ensuringCandidate}>
             {(() => {
               const list = passport.candidateId?.academic;
               if (!list?.length) return (
@@ -318,7 +355,7 @@ const PassportDetail = () => {
           </PanelCard>
 
           {/* ── Nominee Information ── */}
-          <PanelCard title="Nominee Information" onEdit={() => setEditSection('nominee')}>
+          <PanelCard title="Nominee Information" onEdit={() => openSection('nominee')} editLoading={ensuringCandidate}>
             {(() => {
               const n = passport.candidateId?.nomineeInfo;
               return (
@@ -364,7 +401,7 @@ const PassportDetail = () => {
           </PanelCard>
 
           {/* ── Work Detail Information ── */}
-          <PanelCard title="Work Detail Information" onEdit={() => setEditSection('workDetail')}>
+          <PanelCard title="Work Detail Information" onEdit={() => openSection('workDetail')} editLoading={ensuringCandidate}>
             {(() => {
               const c    = passport.candidateId;
               const dem  = passport.allocatedToDemandId;
@@ -409,7 +446,8 @@ const PassportDetail = () => {
           {/* ── Physical Attributes (from linked candidate) ── */}
           <PanelCard
             title="Physical Attributes"
-            onEdit={passport.candidateId?._id ? () => setEditSection('physical') : undefined}
+            onEdit={() => openSection('physical')}
+            editLoading={ensuringCandidate}
           >
             {(() => {
               const pa = passport.candidateId?.physicalAttributes || {};
@@ -428,7 +466,8 @@ const PassportDetail = () => {
           {/* ── Work Experience (from linked candidate) ── */}
           <PanelCard
             title="Work Experience"
-            onEdit={passport.candidateId?._id ? () => setEditSection('workHistory') : undefined}
+            onEdit={() => openSection('workHistory')}
+            editLoading={ensuringCandidate}
           >
             {(() => {
               const list = passport.candidateId?.workHistory || [];
@@ -578,15 +617,13 @@ const PassportDetail = () => {
         />
       )}
 
-      {passport?.candidateId && (
-        <EditCandidateSectionModal
-          isOpen={!!editSection}
-          section={editSection}
-          candidate={passport.candidateId}
-          onClose={() => setEditSection(null)}
-          onSuccess={loadPassport}
-        />
-      )}
+      <EditCandidateSectionModal
+        isOpen={!!editSection}
+        section={editSection}
+        candidate={passport.candidateId}
+        onClose={() => setEditSection(null)}
+        onSuccess={loadPassport}
+      />
     </div>
   );
 };

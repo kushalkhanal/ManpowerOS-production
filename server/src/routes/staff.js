@@ -5,6 +5,7 @@ import checkPlanLimits from '../middleware/checkPlanLimits.js';
 import { checkStaffAccess } from '../middleware/rbac.js';
 import { validateZod } from '../validators/validateZod.js';
 import { staffInviteSchema, staffUpdateSchema, staffPermissionsUpdateSchema } from '../validators/zod/staff.schema.js';
+import { sensitiveOperationRateLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
@@ -15,11 +16,11 @@ router.get('/online', staffController.getOnlineUsers);
 router.get('/:id', staffController.getUserById);
 router.get('/:id/activity', authorize('admin', 'superadmin'), staffController.getUserActivity);
 router.get('/:id/candidates', authorize('admin', 'manager'), staffController.getUserCandidates);
-router.post('/invite', authorize('admin', 'superadmin'), checkPlanLimits, validateZod(staffInviteSchema), staffController.inviteUser);
+router.post('/invite', sensitiveOperationRateLimiter, authorize('admin', 'superadmin'), checkPlanLimits, validateZod(staffInviteSchema), staffController.inviteUser);
 router.patch('/:id', authorize('admin', 'superadmin'), validateZod(staffUpdateSchema), staffController.updateUser);
-router.patch('/:id/toggle', authorize('admin', 'superadmin'), staffController.toggleUser);
+router.patch('/:id/toggle', sensitiveOperationRateLimiter, authorize('admin', 'superadmin'), staffController.toggleUser);
 router.patch('/:id/permissions', authorize('admin', 'superadmin'), validateZod(staffPermissionsUpdateSchema), staffController.updatePermissions);
-router.post('/:id/reset-password', authorize('admin', 'superadmin'), staffController.resetPassword);
-router.delete('/:id', authorize('admin', 'superadmin'), staffController.deleteUser);
+router.post('/:id/reset-password', sensitiveOperationRateLimiter, authorize('admin', 'superadmin'), staffController.resetPassword);
+router.delete('/:id', sensitiveOperationRateLimiter, authorize('admin', 'superadmin'), staffController.deleteUser);
 
 export default router;

@@ -216,10 +216,11 @@ const CandidateList = () => {
   const loadCandidates = useCallback(async (page = 1) => {
     await getCandidates({
       page,
-      search:         search || undefined,
-      status:         statusFilter || undefined,
-      desiredCountry: countryFilter || undefined,
-      agentId:        agentFilter || undefined,
+      search:             search || undefined,
+      status:             statusFilter || undefined,
+      desiredCountry:     countryFilter || undefined,
+      agentId:            agentFilter || undefined,
+      includeCompliance:  true,
     });
   }, [search, statusFilter, countryFilter, agentFilter, getCandidates]);
 

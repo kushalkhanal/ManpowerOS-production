@@ -1,11 +1,34 @@
 import mongoose from 'mongoose';
 import Passport from '../models/Passport.js';
 import JobDemand from '../models/JobDemand.js';
-import Candidate from '../models/Candidate.js';
+import Candidate, { NEPAL_DISTRICTS_LIST } from '../models/Candidate.js';
 import PassportLog from '../models/PassportLog.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { adToBS, formatBSDisplay } from '../utils/bsDate.js';
 import { scopeFilter, scopeData } from '../utils/tenantHelper.js';
+
+// Map legacy district typos (free-form on Passport) to the canonical enum
+// values required on Candidate. If we can't recognize it, leave the field
+// unset rather than blocking the whole allocation with a validation error.
+const DISTRICT_ALIAS_MAP = {
+  'sindhupalachok': 'Sindhupalchok',
+  'sindupalchok':   'Sindhupalchok',
+  'kavre':          'Kavrepalanchok',
+  'kavrepalanchowk':'Kavrepalanchok',
+  'newalparasi':    'Nawalparasi',
+};
+
+const sanitizeDistrict = (raw) => {
+  if (!raw || typeof raw !== 'string') return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+  if (NEPAL_DISTRICTS_LIST.includes(trimmed)) return trimmed;
+  const lower = trimmed.toLowerCase();
+  const exact = NEPAL_DISTRICTS_LIST.find((d) => d.toLowerCase() === lower);
+  if (exact) return exact;
+  if (DISTRICT_ALIAS_MAP[lower]) return DISTRICT_ALIAS_MAP[lower];
+  return undefined;
+};
 
 const getPoolPassports = asyncHandler(async (req, res) => {
   const { 
@@ -237,13 +260,21 @@ const allocatePassport = asyncHandler(async (req, res) => {
 
       if (!demand) throw new Error('Demand is fully filled or not found');
 
-      const candidateData = scopeData(req, {
+      // Prefer the existing stub candidate linked to this passport (by id or
+      // passport number) so allocation enriches it instead of creating a duplicate.
+      const existingCandidate = await Candidate.findOne(
+        scopeFilter(req, passport.candidateId
+          ? { _id: passport.candidateId }
+          : { $or: [{ passportId: passport._id }, { passportNumber: passport.passportNumber }] })
+      ).session(session);
+
+      const allocationFields = scopeData(req, {
         fullName: passport.fullName,
         dateOfBirth: passport.dateOfBirth,
         gender: passport.gender || 'male',
         nationalIdNumber: passport.passportNumber,
         phone: phone || passport.contactPhone || '',
-        permanentDistrict: passport.districtOfOrigin || passport.issuedDistrict,
+        permanentDistrict: sanitizeDistrict(passport.districtOfOrigin || passport.issuedDistrict),
         passportId: passport._id,
         passportNumber: passport.passportNumber,
         demandId: demand._id,
@@ -254,11 +285,19 @@ const allocatePassport = asyncHandler(async (req, res) => {
         agentNumber: agentNumber,
         serviceFeeAgreed: serviceFeeAgreed,
         status: 'demand_allocated',
-        agentId: req.user.userId,
-        registeredAt: new Date()
+        agentId: req.user.userId
       });
 
-      const candidate = (await Candidate.create([candidateData], sessionOptions))[0];
+      let candidate;
+      if (existingCandidate) {
+        candidate = await Candidate.findByIdAndUpdate(
+          existingCandidate._id,
+          { $set: allocationFields },
+          { new: true, ...sessionOptions }
+        );
+      } else {
+        candidate = (await Candidate.create([{ ...allocationFields, registeredAt: new Date() }], sessionOptions))[0];
+      }
 
       await JobDemand.findByIdAndUpdate(
         demand._id,
@@ -294,13 +333,21 @@ const allocatePassport = asyncHandler(async (req, res) => {
     }));
     if (!demand) throw new Error('Demand is fully filled or not found');
 
-    const candidateData = scopeData(req, {
+    // Prefer the existing stub candidate linked to this passport (by id or
+    // passport number) so allocation enriches it instead of creating a duplicate.
+    const existingCandidate = await Candidate.findOne(
+      scopeFilter(req, passport.candidateId
+        ? { _id: passport.candidateId }
+        : { $or: [{ passportId: passport._id }, { passportNumber: passport.passportNumber }] })
+    );
+
+    const allocationFields = scopeData(req, {
       fullName: passport.fullName,
       dateOfBirth: passport.dateOfBirth,
       gender: passport.gender || 'male',
       nationalIdNumber: passport.passportNumber,
       phone: phone || passport.contactPhone || '',
-      permanentDistrict: passport.districtOfOrigin || passport.issuedDistrict,
+      permanentDistrict: sanitizeDistrict(passport.districtOfOrigin || passport.issuedDistrict),
       passportId: passport._id,
       passportNumber: passport.passportNumber,
       demandId: demand._id,
@@ -311,13 +358,26 @@ const allocatePassport = asyncHandler(async (req, res) => {
       agentNumber: agentNumber,
       serviceFeeAgreed: serviceFeeAgreed,
       status: 'demand_allocated',
-      agentId: req.user.userId,
-      registeredAt: new Date()
+      agentId: req.user.userId
     });
 
     let candidate = null;
+    // Snapshot the pre-allocation state so rollback can restore the stub
+    // candidate (instead of deleting it, which would lose user-edited data).
+    const preExistingCandidateSnapshot = existingCandidate ? existingCandidate.toObject() : null;
+    let createdNewCandidate = false;
+
     try {
-      candidate = await Candidate.create(candidateData);
+      if (existingCandidate) {
+        candidate = await Candidate.findByIdAndUpdate(
+          existingCandidate._id,
+          { $set: allocationFields },
+          { new: true }
+        );
+      } else {
+        candidate = await Candidate.create({ ...allocationFields, registeredAt: new Date() });
+        createdNewCandidate = true;
+      }
 
       const updatedPassport = await Passport.findOneAndUpdate(
         scopeFilter(req, { _id: passportId, allocationStatus: 'in_pool' }),
@@ -369,15 +429,19 @@ const allocatePassport = asyncHandler(async (req, res) => {
       return { passport: updatedPassport, candidate, demand: updatedDemand };
     } catch (error) {
       // Rollback best-effort for non-transaction mode.
-      if (candidate?._id) {
+      if (createdNewCandidate && candidate?._id) {
         await Candidate.findByIdAndDelete(candidate._id);
+      } else if (preExistingCandidateSnapshot) {
+        // Restore the stub candidate to its pre-allocation state.
+        const { _id, __v, createdAt, updatedAt, ...restorable } = preExistingCandidateSnapshot;
+        await Candidate.findByIdAndUpdate(_id, { $set: restorable });
       }
       await Passport.findOneAndUpdate(
         scopeFilter(req, { _id: passportId }),
         {
           $set: {
             allocationStatus: 'in_pool',
-            candidateId: null,
+            candidateId: preExistingCandidateSnapshot?._id || null,
             allocatedToDemandId: null,
             allocatedAt: null,
             allocatedBy: null

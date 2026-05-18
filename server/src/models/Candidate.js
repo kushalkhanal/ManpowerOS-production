@@ -292,6 +292,7 @@ const candidateSchema = new mongoose.Schema({
   timestamps: true
 });
 
+candidateSchema.index({ passportId: 1 }, { unique: true, sparse: true });
 candidateSchema.index({ agencyId: 1, createdAt: -1 });
 candidateSchema.index({ agencyId: 1, status: 1 });
 candidateSchema.index({ agencyId: 1, desiredCountry: 1 });

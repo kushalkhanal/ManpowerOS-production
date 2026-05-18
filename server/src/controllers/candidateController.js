@@ -1,4 +1,3 @@
-console.log('🚨🚨🚨 [CANDIDATE_CONTROLLER] LOADED VERSION 2026-05-18-RAW-DRIVER 🚨🚨🚨');
 import mongoose from 'mongoose';
 import Candidate from '../models/Candidate.js';
 import User from '../models/User.js';
@@ -78,7 +77,7 @@ const enrichWithCompliance = async (candidates) => {
 };
 
 const getCandidates = asyncHandler(async (req, res) => {
-  const { search, status, desiredCountry, agentId, page = 1, limit = 20, cursor } = req.query;
+  const { search, status, desiredCountry, agentId, page = 1, limit = 20, cursor, includeCompliance } = req.query;
   const pageLimit = Math.min(parseInt(limit) || 20, 100);
 
   const filter = scopeFilter(req);
@@ -122,9 +121,9 @@ const getCandidates = asyncHandler(async (req, res) => {
       ? `${new Date(lastItem.registeredAt).toISOString()}__${lastItem._id}`
       : null;
 
-    const enriched = await enrichWithCompliance(page);
+    const list = includeCompliance === 'true' ? await enrichWithCompliance(page) : page;
     return res.status(200).json({
-      data: enriched.map(c => ({
+      data: list.map(c => ({
         ...c,
         daysSinceRegistered: Math.floor((new Date() - (c.registeredAt || c.createdAt)) / (1000 * 60 * 60 * 24))
       })),
@@ -145,9 +144,9 @@ const getCandidates = asyncHandler(async (req, res) => {
     Candidate.countDocuments(filter)
   ]);
 
-  const enriched = await enrichWithCompliance(candidates);
+  const list = includeCompliance === 'true' ? await enrichWithCompliance(candidates) : candidates;
   res.status(200).json({
-    data: enriched.map(c => ({
+    data: list.map(c => ({
       ...c,
       daysSinceRegistered: Math.floor((new Date() - (c.registeredAt || c.createdAt)) / (1000 * 60 * 60 * 24))
     })),
@@ -1547,31 +1546,25 @@ export default {
       return res.status(400).json({ message: 'No valid fields to update' });
     }
 
-    // Build scoped filter using a raw ObjectId so the native driver matches it
-    const scoped = scopeFilter(req, { _id: req.params.id });
-    const rawFilter = { ...scoped, _id: new mongoose.Types.ObjectId(req.params.id) };
-
-    console.log('═══════════════════════════════════════════════════════════════');
-    console.log('[updateProfileSection] req.body keys =', Object.keys(req.body));
-    console.log('[updateProfileSection] req.body.physicalAttributes =', JSON.stringify(req.body.physicalAttributes));
-    console.log('[updateProfileSection] $set updates =', JSON.stringify(updates));
-    console.log('[updateProfileSection] rawFilter =', JSON.stringify(rawFilter));
+    // Build scoped filter using raw ObjectIds — the native MongoDB driver does
+    // exact-type matching so both _id and agencyId must be ObjectId, not strings.
+    const scoped = scopeFilter(req, {});
+    const rawFilter = {
+      _id: new mongoose.Types.ObjectId(req.params.id),
+      ...(scoped.agencyId
+        ? { agencyId: new mongoose.Types.ObjectId(String(scoped.agencyId)) }
+        : {})
+    };
 
     // RAW MongoDB driver write — no Mongoose, no strict mode, no subdoc cast
     const writeResult = await Candidate.collection.updateOne(rawFilter, { $set: updates });
-    console.log('[updateProfileSection] updateOne result =', JSON.stringify(writeResult));
 
     if (writeResult.matchedCount === 0) {
-      console.log('[updateProfileSection] CANDIDATE NOT MATCHED — check scopeFilter');
       return res.status(404).json({ message: 'Candidate not found' });
     }
 
     // RAW MongoDB driver read — no Mongoose hydration, no field stripping
     const candidate = await Candidate.collection.findOne(rawFilter);
-    console.log('[updateProfileSection] AFTER WRITE — physicalAttributes =', JSON.stringify(candidate?.physicalAttributes));
-    console.log('[updateProfileSection] AFTER WRITE — workHistory =', JSON.stringify(candidate?.workHistory));
-    console.log('[updateProfileSection] AFTER WRITE — nomineeInfo =', JSON.stringify(candidate?.nomineeInfo));
-    console.log('═══════════════════════════════════════════════════════════════');
 
     res.status(200).json({ success: true, candidate });
   }),

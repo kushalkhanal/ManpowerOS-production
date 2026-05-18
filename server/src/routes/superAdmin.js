@@ -2,11 +2,12 @@ import express from 'express';
 import superAdminController from '../controllers/superAdminController.js';
 import { authenticate, authorize } from '../middleware/authenticate.js';
 import { validateZod } from '../validators/validateZod.js';
-import { 
-  superAdminAgencyStatusSchema, 
-  superAdminCreateAdminSchema, 
-  superAdminAgencyPlanSchema 
+import {
+  superAdminAgencyStatusSchema,
+  superAdminCreateAdminSchema,
+  superAdminAgencyPlanSchema
 } from '../validators/zod/superAdmin.schema.js';
+import { sensitiveOperationRateLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
@@ -16,10 +17,10 @@ router.use(authorize('superadmin'));
 
 router.get('/stats', superAdminController.getPlatformStats);
 router.get('/agencies', superAdminController.getAllAgencies);
-router.patch('/agencies/:id/status', validateZod(superAdminAgencyStatusSchema), superAdminController.updateAgencyStatus);
-router.delete('/agencies/:id', superAdminController.deleteAgency);
-router.post('/agencies/:id/impersonate', superAdminController.impersonateAgency);
-router.post('/agencies/:id/create-admin', validateZod(superAdminCreateAdminSchema), superAdminController.createAdminForAgency);
-router.patch('/agencies/:id/plan', validateZod(superAdminAgencyPlanSchema), superAdminController.updateAgencyPlan);
+router.patch('/agencies/:id/status', sensitiveOperationRateLimiter, validateZod(superAdminAgencyStatusSchema), superAdminController.updateAgencyStatus);
+router.delete('/agencies/:id', sensitiveOperationRateLimiter, superAdminController.deleteAgency);
+router.post('/agencies/:id/impersonate', sensitiveOperationRateLimiter, superAdminController.impersonateAgency);
+router.post('/agencies/:id/create-admin', sensitiveOperationRateLimiter, validateZod(superAdminCreateAdminSchema), superAdminController.createAdminForAgency);
+router.patch('/agencies/:id/plan', sensitiveOperationRateLimiter, validateZod(superAdminAgencyPlanSchema), superAdminController.updateAgencyPlan);
 
 export default router;

@@ -102,7 +102,48 @@ const createPassport = asyncHandler(async (req, res) => {
     passportData.allocatedBy = req.user.userId;
   }
 
-  const passport = await Passport.create(scopeData(req, passportData));
+  let passport;
+  try {
+    passport = await Passport.create(scopeData(req, passportData));
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ message: 'Passport number already exists within this agency' });
+    }
+    throw err;
+  }
+
+  // Auto-create stub candidate for pool passports so the user can edit profile
+  // sections (address, bank, training, etc.) and generate a CV before the
+  // passport is matched to a demand. Allocation later updates this same record.
+  // findOneAndUpdate+upsert is atomic — concurrent requests for the same
+  // passportId will not create duplicate candidates (unique sparse index enforces this).
+  if (!candidateId) {
+    try {
+      const setOnInsert = scopeData(req, {
+        fullName: passport.fullName,
+        dateOfBirth: passport.dateOfBirth,
+        gender: passport.gender || 'male',
+        nationalIdNumber: passport.passportNumber,
+        phone: passport.contactPhone || '',
+        passportId: passport._id,
+        passportNumber: passport.passportNumber,
+        status: 'registered',
+        agentId: req.user.userId,
+        registeredAt: new Date()
+      });
+      const stubCandidate = await Candidate.findOneAndUpdate(
+        scopeFilter(req, { passportId: passport._id }),
+        { $setOnInsert: setOnInsert },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+      await Passport.findByIdAndUpdate(passport._id, {
+        $set: { candidateId: stubCandidate._id }
+      });
+    } catch (err) {
+      logger.error('Failed to auto-create stub candidate for passport', err);
+      // Don't block passport creation — allocation can still create one later.
+    }
+  }
 
   // Log creation
   await PassportLog.create({
@@ -191,9 +232,6 @@ const getPassportById = asyncHandler(async (req, res) => {
   if (!passport) {
     return res.status(404).json({ message: 'Passport not found' });
   }
-
-  console.log('[getPassportById] lean populated candidate.physicalAttributes =', JSON.stringify(passport?.candidateId?.physicalAttributes));
-  console.log('[getPassportById] lean populated candidate.workHistory =', JSON.stringify(passport?.candidateId?.workHistory));
 
   const logs = await PassportLog.find({ passportId: passport._id })
     .sort({ timestamp: -1 })
@@ -317,14 +355,22 @@ const updatePassport = asyncHandler(async (req, res) => {
   if (contactPhone !== undefined) updates.contactPhone = contactPhone;
   if (gender !== undefined) updates.gender = gender;
 
-  const updatedPassport = await Passport.findByIdAndUpdate(
-    req.params.id,
-    { $set: updates },
-    { new: true, runValidators: true }
-  )
-    .populate('candidateId', 'fullName')
-    .populate('collectedBy', 'name')
-    .populate('returnedBy', 'name');
+  let updatedPassport;
+  try {
+    updatedPassport = await Passport.findByIdAndUpdate(
+      req.params.id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    )
+      .populate('candidateId', 'fullName')
+      .populate('collectedBy', 'name')
+      .populate('returnedBy', 'name');
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ message: 'Passport number already exists' });
+    }
+    throw err;
+  }
 
   const changes = [];
   for (const key in updates) {
@@ -476,6 +522,53 @@ const scanPassport = asyncHandler(async (req, res) => {
   });
 });
 
+// Idempotent — creates a stub Candidate linked to this passport if one does not
+// already exist, then returns the fully populated passport. Used by the UI to
+// enable profile-section editing for pool passports before demand allocation.
+const ensureCandidate = asyncHandler(async (req, res) => {
+  const passport = await Passport.findOne(scopeFilter(req, { _id: req.params.id }));
+  if (!passport) return res.status(404).json({ message: 'Passport not found' });
+
+  const CANDIDATE_POPULATE_FIELDS = [
+    'fullName', 'phone', 'email', 'status', 'nationalIdNumber',
+    'gender', 'dateOfBirth', 'maritalStatus', 'religion',
+    'permanentProvince', 'permanentDistrict', 'permanentMunicipality', 'permanentWardNo',
+    'temporaryAddress', 'temporaryMunicipality', 'temporaryDistrict', 'temporaryProvince',
+    'bankInfo', 'training', 'academic', 'nomineeInfo',
+    'visaNumber', 'visaIssuedDate', 'visaReceivedDate', 'visaExpiryDate',
+    'kdnBpaNo', 'branchInfo', 'desiredCountry', 'desiredJobCategory', 'skills',
+    'physicalAttributes', 'workHistory',
+  ].join(' ');
+
+  const setOnInsert = scopeData(req, {
+    fullName: passport.fullName,
+    dateOfBirth: passport.dateOfBirth,
+    gender: passport.gender || 'male',
+    nationalIdNumber: passport.passportNumber,
+    phone: passport.contactPhone || '',
+    passportId: passport._id,
+    passportNumber: passport.passportNumber,
+    status: 'registered',
+    agentId: req.user.userId,
+    registeredAt: new Date()
+  });
+
+  // Atomic upsert — concurrent requests for the same passportId will hit the
+  // unique sparse index and return the existing candidate rather than creating a duplicate.
+  const stub = await Candidate.findOneAndUpdate(
+    scopeFilter(req, { passportId: passport._id }),
+    { $setOnInsert: setOnInsert },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+  await Passport.findByIdAndUpdate(passport._id, { $set: { candidateId: stub._id } });
+
+  const populated = await Passport.findById(passport._id)
+    .populate('candidateId', CANDIDATE_POPULATE_FIELDS)
+    .lean();
+
+  res.status(201).json(populated);
+});
+
 export default {
   createPassport,
   getPassports,
@@ -485,5 +578,6 @@ export default {
   deletePassport,
   getExpiringPassports,
   getPassportStats,
-  scanPassport
+  scanPassport,
+  ensureCandidate
 };

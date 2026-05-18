@@ -8,6 +8,7 @@ import { authenticate, authorize } from '../middleware/authenticate.js';
 import { filterAgentCandidates, checkEditAccess, checkDeleteAccess } from '../middleware/rbac.js';
 import { validateZod } from '../validators/validateZod.js';
 import { passportSchema, passportUpdateSchema } from '../validators/zod/passport.schema.js';
+import { sensitiveOperationRateLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
@@ -51,7 +52,8 @@ router.get('/expiring', passportController.getExpiringPassports);
 router.get('/stats', passportController.getPassportStats);
 router.get('/:id', filterAgentCandidates, passportController.getPassportById);
 router.patch('/:id', validateZod(passportUpdateSchema), filterAgentCandidates, checkEditAccess, passportController.updatePassport);
-router.patch('/:id/status', passportController.updatePassportStatus);
-router.delete('/:id', checkDeleteAccess, passportController.deletePassport);
+router.patch('/:id/status', sensitiveOperationRateLimiter, filterAgentCandidates, checkEditAccess, passportController.updatePassportStatus);
+router.post('/:id/ensure-candidate', filterAgentCandidates, passportController.ensureCandidate);
+router.delete('/:id', sensitiveOperationRateLimiter, checkDeleteAccess, passportController.deletePassport);
 
 export default router;
