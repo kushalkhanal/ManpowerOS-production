@@ -1,57 +1,74 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { usePassports } from '../hooks/usePassports';
-import AddPassportModal from '../components/AddPassportModal';
-import AllocationModal from '../components/AllocationModal';
-import Pagination from '../components/ui/Pagination';
-import { NEPAL_DISTRICTS } from '../utils/nepalDistricts';
-import { ConfirmDialog } from '../components/ui';
-import { showToast } from '../components/ToastProvider';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { usePassports } from "../hooks/usePassports";
+import AddPassportModal from "../components/AddPassportModal";
+import AllocationModal from "../components/AllocationModal";
+import Pagination from "../components/ui/Pagination";
+import { NEPAL_DISTRICTS } from "../utils/nepalDistricts";
+import { ConfirmDialog } from "../components/ui";
+import { showToast } from "../components/ToastProvider";
 import {
-  Search, BookOpen, Plus, Camera, PenLine, AlertTriangle,
-  MoreVertical, ArrowRight, Trash2, Eye, ChevronDown, SlidersHorizontal,
-} from 'lucide-react';
+  Search,
+  BookOpen,
+  Plus,
+  Camera,
+  PenLine,
+  AlertTriangle,
+  MoreVertical,
+  ArrowRight,
+  Trash2,
+  Eye,
+  ChevronDown,
+  SlidersHorizontal,
+  FileText,
+} from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const CUSTODY_COLORS = {
-  with_agency:           'bg-blue-100 text-blue-700',
-  returned_to_candidate: 'bg-emerald-100 text-emerald-700',
-  submitted_embassy:     'bg-amber-100 text-amber-700',
-  lost:                  'bg-red-100 text-red-700',
+  with_agency: "bg-blue-100 text-blue-700",
+  returned_to_candidate: "bg-emerald-100 text-emerald-700",
+  submitted_embassy: "bg-amber-100 text-amber-700",
+  lost: "bg-red-100 text-red-700",
 };
 
 const CUSTODY_LABELS = {
-  with_agency:           'With Agency',
-  returned_to_candidate: 'Returned',
-  submitted_embassy:     'At Embassy',
-  lost:                  'Lost',
+  with_agency: "With Agency",
+  returned_to_candidate: "Returned",
+  submitted_embassy: "At Embassy",
+  lost: "Lost",
 };
 
 const FILTER_TABS = [
-  { key: 'all',       label: 'All' },
-  { key: 'pool',      label: 'Pool',      allocationStatus: 'in_pool'   },
-  { key: 'allocated', label: 'Allocated', allocationStatus: 'allocated' },
-  { key: 'expiring',  label: 'Expiring',  expiring: true                },
-  { key: 'lost',      label: 'Lost',      status: 'lost'                },
+  { key: "all", label: "All" },
+  { key: "pool", label: "Pool", allocationStatus: "in_pool" },
+  { key: "allocated", label: "Allocated", allocationStatus: "allocated" },
+  { key: "expiring", label: "Expiring", expiring: true },
+  { key: "lost", label: "Lost", status: "lost" },
 ];
 
 const PAGE_SIZE = 20;
 
-const fmt = (d) => d
-  ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-  : '—';
+const fmt = (d) =>
+  d
+    ? new Date(d).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "—";
 
-const daysUntil = (d) => d ? Math.ceil((new Date(d) - Date.now()) / 86400000) : null;
+const daysUntil = (d) =>
+  d ? Math.ceil((new Date(d) - Date.now()) / 86400000) : null;
 
 // ─── Row card ─────────────────────────────────────────────────────────────────
 
 function PassportRow({ passport, onAllocate, onDelete }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const expDays    = daysUntil(passport.expiryDate);
+  const expDays = daysUntil(passport.expiryDate);
   const isExpiring = expDays !== null && expDays > 0 && expDays <= 60;
-  const isExpired  = expDays !== null && expDays <= 0;
-  const isPool     = passport.allocationStatus !== 'allocated';
+  const isExpired = expDays !== null && expDays <= 0;
+  const isPool = passport.allocationStatus !== "allocated";
 
   return (
     <div className="border border-gray-100 rounded-xl px-4 py-3 bg-white hover:border-gray-200 transition-colors">
@@ -65,9 +82,12 @@ function PassportRow({ passport, onAllocate, onDelete }) {
             >
               {passport.fullName}
             </Link>
-            <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${
-              CUSTODY_COLORS[passport.custodyStatus] || 'bg-gray-100 text-gray-600'
-            }`}>
+            <span
+              className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                CUSTODY_COLORS[passport.custodyStatus] ||
+                "bg-gray-100 text-gray-600"
+              }`}
+            >
               {CUSTODY_LABELS[passport.custodyStatus] || passport.custodyStatus}
             </span>
             {isPool ? (
@@ -84,10 +104,14 @@ function PassportRow({ passport, onAllocate, onDelete }) {
           <div className="flex flex-wrap items-center gap-x-3 gap-y-0 mt-0.5 text-xs text-gray-400">
             <span className="font-mono">{passport.passportNumber}</span>
             {(passport.districtOfOrigin || passport.issuedDistrict) && (
-              <span>{passport.districtOfOrigin || passport.issuedDistrict}</span>
+              <span>
+                {passport.districtOfOrigin || passport.issuedDistrict}
+              </span>
             )}
             {passport.age && <span>{passport.age}y</span>}
-            {passport.gender && <span className="capitalize">{passport.gender}</span>}
+            {passport.gender && (
+              <span className="capitalize">{passport.gender}</span>
+            )}
           </div>
 
           {passport.candidateId && (
@@ -105,9 +129,15 @@ function PassportRow({ passport, onAllocate, onDelete }) {
 
         {/* Expiry */}
         <div className="hidden sm:block text-right shrink-0">
-          <p className={`text-xs font-medium ${
-            isExpired ? 'text-red-600' : isExpiring ? 'text-amber-600' : 'text-gray-400'
-          }`}>
+          <p
+            className={`text-xs font-medium ${
+              isExpired
+                ? "text-red-600"
+                : isExpiring
+                  ? "text-amber-600"
+                  : "text-gray-400"
+            }`}
+          >
             {isExpired
               ? `Expired ${-expDays}d ago`
               : isExpiring
@@ -115,7 +145,9 @@ function PassportRow({ passport, onAllocate, onDelete }) {
                 : `Exp ${fmt(passport.expiryDate)}`}
           </p>
           {passport.expiryDateBS && (
-            <p className="text-[11px] text-gray-300 mt-0.5">{passport.expiryDateBS}</p>
+            <p className="text-[11px] text-gray-300 mt-0.5">
+              {passport.expiryDateBS}
+            </p>
           )}
         </div>
 
@@ -131,7 +163,7 @@ function PassportRow({ passport, onAllocate, onDelete }) {
           )}
           <div className="relative">
             <button
-              onClick={() => setMenuOpen(o => !o)}
+              onClick={() => setMenuOpen((o) => !o)}
               onBlur={() => setTimeout(() => setMenuOpen(false), 150)}
               className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded transition-colors"
             >
@@ -141,7 +173,10 @@ function PassportRow({ passport, onAllocate, onDelete }) {
               <div className="absolute right-0 top-7 w-36 bg-white border border-gray-100 rounded-xl shadow-lg z-20 py-1 text-xs">
                 {isPool && (
                   <button
-                    onClick={() => { setMenuOpen(false); onAllocate(passport); }}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onAllocate(passport);
+                    }}
                     className="flex w-full items-center gap-2 px-3 py-1.5 text-primary hover:bg-primary/5"
                   >
                     <ArrowRight size={12} /> Allocate
@@ -153,6 +188,16 @@ function PassportRow({ passport, onAllocate, onDelete }) {
                 >
                   <Eye size={12} /> View
                 </Link>
+                {passport.candidateId?._id && (
+                  <a
+                    href={`/print/cv/${passport.candidateId._id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-3 py-1.5 text-purple-700 hover:bg-purple-50"
+                  >
+                    <FileText size={12} /> Generate CV
+                  </a>
+                )}
                 <Link
                   to={`/passports/${passport._id}?edit=true`}
                   className="flex items-center gap-2 px-3 py-1.5 text-gray-700 hover:bg-gray-50"
@@ -160,7 +205,10 @@ function PassportRow({ passport, onAllocate, onDelete }) {
                   <PenLine size={12} /> Edit
                 </Link>
                 <button
-                  onClick={() => { setMenuOpen(false); onDelete(passport._id); }}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onDelete(passport._id);
+                  }}
                   className="flex w-full items-center gap-2 px-3 py-1.5 text-red-600 hover:bg-red-50"
                 >
                   <Trash2 size={12} /> Delete
@@ -178,8 +226,11 @@ function PassportRow({ passport, onAllocate, onDelete }) {
 
 const PassportList = () => {
   const {
-    passports, loading, pagination,
-    getPassports, getExpiringPassports,
+    passports,
+    loading,
+    pagination,
+    getPassports,
+    getExpiringPassports,
     deletePassport,
   } = usePassports();
 
@@ -188,60 +239,60 @@ const PassportList = () => {
 
   // All filter state in one object so a single effect drives the API call
   const [qs, setQs] = useState({
-    search:              searchParams.get('search')              || '',
-    tab:                 searchParams.get('tab')                 || 'all',
-    gender:              searchParams.get('gender')              || '',
-    district:            searchParams.get('district')            || '',
-    passportValidMonths: searchParams.get('passportValidMonths') || '',
-    page:                Math.max(1, Number(searchParams.get('page')) || 1),
+    search: searchParams.get("search") || "",
+    tab: searchParams.get("tab") || "all",
+    gender: searchParams.get("gender") || "",
+    district: searchParams.get("district") || "",
+    passportValidMonths: searchParams.get("passportValidMonths") || "",
+    page: Math.max(1, Number(searchParams.get("page")) || 1),
   });
 
   const addMenuRef = useRef(null);
 
-  const [filtersOpen,    setFiltersOpen]    = useState(false);
-  const [addMenuOpen,    setAddMenuOpen]    = useState(false);
-  const [showAddModal,   setShowAddModal]   = useState(false);
-  const [allocPassport,  setAllocPassport]  = useState(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [allocPassport, setAllocPassport] = useState(null);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
-  const [deleting,       setDeleting]       = useState(false);
-  const [expiringCount,  setExpiringCount]  = useState(0);
-  const [expiringList,   setExpiringList]   = useState(null); // null = use hook list; array = override for Expiring tab
+  const [deleting, setDeleting] = useState(false);
+  const [expiringCount, setExpiringCount] = useState(0);
+  const [expiringList, setExpiringList] = useState(null); // null = use hook list; array = override for Expiring tab
 
   // Load passports whenever qs changes
   useEffect(() => {
-    const tab = FILTER_TABS.find(t => t.key === qs.tab) || FILTER_TABS[0];
+    const tab = FILTER_TABS.find((t) => t.key === qs.tab) || FILTER_TABS[0];
     if (tab.expiring) {
       getExpiringPassports()
-        .then(list => setExpiringList(list || []))
+        .then((list) => setExpiringList(list || []))
         .catch(() => setExpiringList([]));
     } else {
       setExpiringList(null);
       getPassports({
-        page:                qs.page,
-        limit:               PAGE_SIZE,
-        search:              qs.search              || undefined,
-        allocationStatus:    tab.allocationStatus   || undefined,
-        status:              tab.status             || undefined,
-        gender:              qs.gender              || undefined,
-        district:            qs.district            || undefined,
+        page: qs.page,
+        limit: PAGE_SIZE,
+        search: qs.search || undefined,
+        allocationStatus: tab.allocationStatus || undefined,
+        status: tab.status || undefined,
+        gender: qs.gender || undefined,
+        district: qs.district || undefined,
         passportValidMonths: qs.passportValidMonths || undefined,
       });
     }
     // sync URL
     const p = {};
-    if (qs.search)               p.search   = qs.search;
-    if (qs.tab && qs.tab !== 'all') p.tab    = qs.tab;
-    if (qs.gender)               p.gender   = qs.gender;
-    if (qs.district)             p.district = qs.district;
-    if (qs.passportValidMonths)  p.passportValidMonths = qs.passportValidMonths;
-    if (qs.page > 1)             p.page     = String(qs.page);
+    if (qs.search) p.search = qs.search;
+    if (qs.tab && qs.tab !== "all") p.tab = qs.tab;
+    if (qs.gender) p.gender = qs.gender;
+    if (qs.district) p.district = qs.district;
+    if (qs.passportValidMonths) p.passportValidMonths = qs.passportValidMonths;
+    if (qs.page > 1) p.page = String(qs.page);
     setSearchParams(p, { replace: true });
   }, [qs]);
 
   // Expiring count for banner (one-shot on mount)
   useEffect(() => {
     getExpiringPassports()
-      .then(list => setExpiringCount(list?.length || 0))
+      .then((list) => setExpiringCount(list?.length || 0))
       .catch(() => {});
   }, []);
 
@@ -253,11 +304,11 @@ const PassportList = () => {
         setAddMenuOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [addMenuOpen]);
 
-  const patch = (changes) => setQs(q => ({ ...q, ...changes, page: 1 }));
+  const patch = (changes) => setQs((q) => ({ ...q, ...changes, page: 1 }));
 
   const handleDelete = (id) => setDeleteTargetId(id);
   const confirmDelete = async () => {
@@ -265,26 +316,33 @@ const PassportList = () => {
     try {
       await deletePassport(deleteTargetId);
       setDeleteTargetId(null);
-      setQs(q => ({ ...q })); // re-trigger effect
+      setQs((q) => ({ ...q })); // re-trigger effect
     } catch (err) {
-      showToast.error(err.response?.data?.message || 'Failed to delete passport');
+      showToast.error(
+        err.response?.data?.message || "Failed to delete passport",
+      );
     } finally {
       setDeleting(false);
     }
   };
 
-  const activeFiltersCount = [qs.gender, qs.district, qs.passportValidMonths].filter(Boolean).length;
+  const activeFiltersCount = [
+    qs.gender,
+    qs.district,
+    qs.passportValidMonths,
+  ].filter(Boolean).length;
 
   return (
     <div className="px-4 py-6 sm:px-6 max-w-5xl mx-auto">
       {/* Expiring banner — clickable shortcut to the Expiring tab */}
-      {expiringCount > 0 && qs.tab !== 'expiring' && (
+      {expiringCount > 0 && qs.tab !== "expiring" && (
         <button
-          onClick={() => patch({ tab: 'expiring' })}
+          onClick={() => patch({ tab: "expiring" })}
           className="w-full mb-4 flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs font-medium text-amber-800 hover:bg-amber-100 transition-colors text-left"
         >
           <AlertTriangle size={14} className="shrink-0" />
-          {expiringCount} passport{expiringCount === 1 ? '' : 's'} expiring within 60 days — click to view
+          {expiringCount} passport{expiringCount === 1 ? "" : "s"} expiring
+          within 60 days — click to view
         </button>
       )}
 
@@ -294,13 +352,13 @@ const PassportList = () => {
           <h1 className="text-xl font-bold text-gray-900">Passport Pool</h1>
           {pagination?.total != null && (
             <p className="text-xs text-gray-400 mt-0.5">
-              {pagination.total} passport{pagination.total === 1 ? '' : 's'}
+              {pagination.total} passport{pagination.total === 1 ? "" : "s"}
             </p>
           )}
         </div>
         <div className="relative" ref={addMenuRef}>
           <button
-            onClick={() => setAddMenuOpen(o => !o)}
+            onClick={() => setAddMenuOpen((o) => !o)}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors"
           >
             <Plus size={14} /> Add <ChevronDown size={12} />
@@ -308,13 +366,19 @@ const PassportList = () => {
           {addMenuOpen && (
             <div className="absolute right-0 top-10 w-44 bg-white border border-gray-100 rounded-xl shadow-lg z-20 py-1 text-sm">
               <button
-                onClick={() => { setAddMenuOpen(false); navigate('/passport/scanner'); }}
+                onClick={() => {
+                  setAddMenuOpen(false);
+                  navigate("/passport/scanner");
+                }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50"
               >
                 <Camera size={13} /> Scan Passport
               </button>
               <button
-                onClick={() => { setAddMenuOpen(false); setShowAddModal(true); }}
+                onClick={() => {
+                  setAddMenuOpen(false);
+                  setShowAddModal(true);
+                }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50"
               >
                 <PenLine size={13} /> Manual Entry
@@ -327,41 +391,46 @@ const PassportList = () => {
       {/* Tabs + search + filter toggle */}
       <div className="flex flex-col sm:flex-row gap-2 mb-4">
         <div className="flex flex-wrap gap-1 bg-gray-100 p-1 rounded-lg self-start">
-          {FILTER_TABS.map(t => (
+          {FILTER_TABS.map((t) => (
             <button
               key={t.key}
               onClick={() => patch({ tab: t.key })}
               className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
                 qs.tab === t.key
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
               }`}
             >
               {t.label}
-              {t.key === 'expiring' && expiringCount > 0 && (
-                <span className="ml-1 text-[10px] text-amber-600">{expiringCount}</span>
+              {t.key === "expiring" && expiringCount > 0 && (
+                <span className="ml-1 text-[10px] text-amber-600">
+                  {expiringCount}
+                </span>
               )}
             </button>
           ))}
         </div>
 
         <div className="flex-1 relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <Search
+            size={14}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+          />
           <input
             type="text"
             placeholder="Search by name or passport number…"
             value={qs.search}
-            onChange={e => patch({ search: e.target.value })}
+            onChange={(e) => patch({ search: e.target.value })}
             className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none"
           />
         </div>
 
         <button
-          onClick={() => setFiltersOpen(o => !o)}
+          onClick={() => setFiltersOpen((o) => !o)}
           className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border rounded-lg transition-colors ${
             activeFiltersCount > 0
-              ? 'border-primary/30 bg-primary/5 text-primary'
-              : 'border-gray-200 text-gray-500 hover:text-gray-700'
+              ? "border-primary/30 bg-primary/5 text-primary"
+              : "border-gray-200 text-gray-500 hover:text-gray-700"
           }`}
         >
           <SlidersHorizontal size={12} />
@@ -374,7 +443,7 @@ const PassportList = () => {
         <div className="flex flex-wrap gap-2 mb-4 p-3 bg-gray-50 border border-gray-100 rounded-xl">
           <select
             value={qs.gender}
-            onChange={e => patch({ gender: e.target.value })}
+            onChange={(e) => patch({ gender: e.target.value })}
             className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none bg-white"
           >
             <option value="">All Genders</option>
@@ -383,15 +452,19 @@ const PassportList = () => {
           </select>
           <select
             value={qs.district}
-            onChange={e => patch({ district: e.target.value })}
+            onChange={(e) => patch({ district: e.target.value })}
             className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none bg-white"
           >
             <option value="">All Districts</option>
-            {NEPAL_DISTRICTS.map(d => <option key={d} value={d}>{d}</option>)}
+            {NEPAL_DISTRICTS.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
           </select>
           <select
             value={qs.passportValidMonths}
-            onChange={e => patch({ passportValidMonths: e.target.value })}
+            onChange={(e) => patch({ passportValidMonths: e.target.value })}
             className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none bg-white"
           >
             <option value="">Any Validity</option>
@@ -401,7 +474,9 @@ const PassportList = () => {
           </select>
           {activeFiltersCount > 0 && (
             <button
-              onClick={() => patch({ gender: '', district: '', passportValidMonths: '' })}
+              onClick={() =>
+                patch({ gender: "", district: "", passportValidMonths: "" })
+              }
               className="px-3 py-1.5 text-xs text-red-600 hover:text-red-700 border border-red-100 rounded-lg hover:bg-red-50"
             >
               Clear filters
@@ -412,62 +487,68 @@ const PassportList = () => {
 
       {/* Passport list */}
       {(() => {
-        const displayList   = expiringList ?? passports;
+        const displayList = expiringList ?? passports;
         const isExpiringTab = expiringList !== null;
         return (
-      <>
-      {loading && displayList.length === 0 ? (
-        <div className="space-y-2">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-16 bg-gray-50 rounded-xl border border-gray-100 animate-pulse" />
-          ))}
-        </div>
-      ) : displayList.length === 0 ? (
-        <div className="flex flex-col items-center py-16 gap-3 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-          <BookOpen size={28} className="text-gray-300" />
-          <p className="text-sm text-gray-400">
-            {isExpiringTab
-              ? 'No passports expiring in the next 60 days.'
-              : qs.tab === 'lost'
-                ? 'No passports marked as lost.'
-                : qs.search || activeFiltersCount > 0
-                  ? 'No passports match your filters.'
-                  : 'No passports in the pool yet.'}
-          </p>
-          {!isExpiringTab && !qs.search && activeFiltersCount === 0 && qs.tab !== 'lost' && (
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-            >
-              <Plus size={12} /> Add first passport
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {displayList.map(p => (
-            <PassportRow
-              key={p._id}
-              passport={p}
-              onAllocate={setAllocPassport}
-              onDelete={handleDelete}
-            />
-          ))}
-        </div>
-      )}
+          <>
+            {loading && displayList.length === 0 ? (
+              <div className="space-y-2">
+                {[...Array(5)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-16 bg-gray-50 rounded-xl border border-gray-100 animate-pulse"
+                  />
+                ))}
+              </div>
+            ) : displayList.length === 0 ? (
+              <div className="flex flex-col items-center py-16 gap-3 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                <BookOpen size={28} className="text-gray-300" />
+                <p className="text-sm text-gray-400">
+                  {isExpiringTab
+                    ? "No passports expiring in the next 60 days."
+                    : qs.tab === "lost"
+                      ? "No passports marked as lost."
+                      : qs.search || activeFiltersCount > 0
+                        ? "No passports match your filters."
+                        : "No passports in the pool yet."}
+                </p>
+                {!isExpiringTab &&
+                  !qs.search &&
+                  activeFiltersCount === 0 &&
+                  qs.tab !== "lost" && (
+                    <button
+                      onClick={() => setShowAddModal(true)}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                    >
+                      <Plus size={12} /> Add first passport
+                    </button>
+                  )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {displayList.map((p) => (
+                  <PassportRow
+                    key={p._id}
+                    passport={p}
+                    onAllocate={setAllocPassport}
+                    onDelete={handleDelete}
+                  />
+                ))}
+              </div>
+            )}
 
-      {!isExpiringTab && pagination?.pages > 1 && (
-        <div className="mt-4">
-          <Pagination
-            page={qs.page}
-            pages={pagination.pages}
-            total={pagination.total}
-            pageSize={PAGE_SIZE}
-            onPageChange={(p) => setQs(q => ({ ...q, page: p }))}
-          />
-        </div>
-      )}
-      </>
+            {!isExpiringTab && pagination?.pages > 1 && (
+              <div className="mt-4">
+                <Pagination
+                  page={qs.page}
+                  pages={pagination.pages}
+                  total={pagination.total}
+                  pageSize={PAGE_SIZE}
+                  onPageChange={(p) => setQs((q) => ({ ...q, page: p }))}
+                />
+              </div>
+            )}
+          </>
         );
       })()}
 
@@ -475,7 +556,10 @@ const PassportList = () => {
       <AddPassportModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
-        onSuccess={() => { setShowAddModal(false); setQs(q => ({ ...q })); }}
+        onSuccess={() => {
+          setShowAddModal(false);
+          setQs((q) => ({ ...q }));
+        }}
       />
 
       {allocPassport && (
@@ -483,7 +567,10 @@ const PassportList = () => {
           isOpen={Boolean(allocPassport)}
           onClose={() => setAllocPassport(null)}
           passport={allocPassport}
-          onSuccess={() => { setAllocPassport(null); setQs(q => ({ ...q })); }}
+          onSuccess={() => {
+            setAllocPassport(null);
+            setQs((q) => ({ ...q }));
+          }}
         />
       )}
 
