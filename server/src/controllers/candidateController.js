@@ -269,11 +269,9 @@ const createCandidate = asyncHandler(async (req, res) => {
       passportNumber: req.body.passportNumber,
     });
     if (existingPassport) {
-      return res
-        .status(400)
-        .json({
-          message: "A candidate with this passport number already exists",
-        });
+      return res.status(400).json({
+        message: "A candidate with this passport number already exists",
+      });
     }
   }
 
@@ -402,11 +400,9 @@ const updateCandidate = asyncHandler(async (req, res) => {
       _id: { $ne: req.params.id },
     });
     if (existing) {
-      return res
-        .status(400)
-        .json({
-          message: "Passport number already exists for another candidate",
-        });
+      return res.status(400).json({
+        message: "Passport number already exists for another candidate",
+      });
     }
   }
 
@@ -679,10 +675,64 @@ const getAgents = asyncHandler(async (req, res) => {
     role: "agent",
     isActive: true,
   })
-    .select("_id name")
+    .select("_id name phone address")
     .lean();
 
   res.status(200).json(agents);
+});
+
+const getAgentStats = asyncHandler(async (req, res) => {
+  const { agentId } = req.params;
+  const agencyId = req.user.agencyId;
+
+  const agent = await User.findOne({ _id: agentId, agencyId, role: "agent" })
+    .select("_id name phone address")
+    .lean();
+  if (!agent) return res.status(404).json({ message: "Agent not found" });
+
+  const ACTIVE_STATUSES = [
+    "registered",
+    "demand_matched",
+    "trade_test_scheduled",
+    "trade_test_passed",
+    "documents_pending",
+    "medical_scheduled",
+    "medical_fit",
+    "calling_visa_received",
+    "insurance_done",
+    "orientation_done",
+    "purba_swukriti_done",
+    "visa_stamped",
+    "plks_received",
+    "feims_submitted",
+    "shram_swukriti_done",
+    "flight_booked",
+  ];
+
+  const [total, active, departed] = await Promise.all([
+    Candidate.countDocuments({ agentId, agencyId }),
+    Candidate.countDocuments({
+      agentId,
+      agencyId,
+      status: { $in: ACTIVE_STATUSES },
+    }),
+    Candidate.countDocuments({ agentId, agencyId, status: "departed" }),
+  ]);
+
+  const lastCandidate = await Candidate.findOne({ agentId, agencyId })
+    .sort({ registeredAt: -1 })
+    .select("registeredAt")
+    .lean();
+
+  res.status(200).json({
+    ...agent,
+    stats: {
+      total,
+      active,
+      departed,
+      lastReferralDate: lastCandidate?.registeredAt || null,
+    },
+  });
 });
 
 const exportCandidates = asyncHandler(async (req, res) => {
@@ -2030,6 +2080,7 @@ export default {
   updateCandidate,
   deleteCandidate,
   getAgents,
+  getAgentStats,
   exportCandidates,
   getCandidateKanban,
   markColumnComplete,
@@ -2095,12 +2146,10 @@ export default {
       .populate("agentId", "name")
       .lean();
 
-    res
-      .status(200)
-      .json({
-        message: "Candidate unassigned from demand",
-        candidate: updatedCandidate,
-      });
+    res.status(200).json({
+      message: "Candidate unassigned from demand",
+      candidate: updatedCandidate,
+    });
   }),
 
   bulkUpdateStatus: asyncHandler(async (req, res) => {

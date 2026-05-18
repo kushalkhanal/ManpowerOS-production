@@ -110,6 +110,11 @@ router.patch(
   validateZod(candidateUpdateSchema),
   candidateController.updateCandidate,
 );
-router.delete("/:id", sensitiveOperationRateLimiter, checkDeleteAccess, candidateController.deleteCandidate);
+router.delete(
+  "/:id",
+  sensitiveOperationRateLimiter,
+  checkDeleteAccess,
+  candidateController.deleteCandidate,
+);
 
 export default router;
