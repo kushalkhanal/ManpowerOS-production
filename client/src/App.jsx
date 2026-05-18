@@ -33,9 +33,11 @@ import GulfVisaBoard from './pages/v2/GulfVisaBoard';
 import MalaysiaPlksBoard from './pages/v2/MalaysiaPlksBoard';
 import MedicalBoard from './pages/v2/MedicalBoard';
 import OrientationBoard from './pages/v2/OrientationBoard';
+import DepartedCandidates from './pages/v2/DepartedCandidates';
 import PrintBiodata from './pages/v2/print/PrintBiodata';
 import PrintFeimsPacket from './pages/v2/print/PrintFeimsPacket';
 import PrintDeparture from './pages/v2/print/PrintDeparture';
+import PrintCV from './pages/v2/print/PrintCV';
 
 const V2CandidateRedirect = () => {
   const { id } = useParams();
@@ -99,6 +101,16 @@ const App = () => {
         />
         {/* Legacy alias — keep redirecting until external links/bookmarks die out */}
         <Route path="/v2/candidates/:id" element={<V2CandidateRedirect />} />
+        <Route
+          path="/departed"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <DepartedCandidates />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/feims"
           element={
@@ -314,6 +326,10 @@ const App = () => {
         <Route
           path="/print/departure/:candidateId"
           element={<ProtectedRoute><PrintDeparture /></ProtectedRoute>}
+        />
+        <Route
+          path="/print/cv/:candidateId"
+          element={<ProtectedRoute><PrintCV /></ProtectedRoute>}
         />
         <Route
           path="/"
