@@ -30,6 +30,7 @@ import sharedDocumentsRoutes from "./sharedDocuments.js";
 import departmentRoutes from "./departments.js";
 import superAdminRoutes from "./superAdmin.js";
 import secureFilesRoutes from "./secureFiles.js";
+import departedRoutes from "./departed.js";
 
 const router = Router();
 
@@ -59,5 +60,6 @@ router.use("/documents", sharedDocumentsRoutes);
 router.use("/departments", departmentRoutes);
 router.use("/superadmin", superAdminRoutes);
 router.use("/files", secureFilesRoutes);
+router.use("/departed", departedRoutes);
 
 export default router;

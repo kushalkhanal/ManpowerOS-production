@@ -430,6 +430,21 @@ const updatePassport = asyncHandler(async (req, res) => {
     notes: changes.length > 0 ? changes.join(", ") : notes || "Details updated",
   });
 
+  // Sync denormalized fields to linked candidate so no stale copies
+  if (updatedPassport.candidateId) {
+    const syncFields = {};
+    if (updates.fullName) syncFields.fullName = updates.fullName;
+    if (updates.dateOfBirth) syncFields.dateOfBirth = updates.dateOfBirth;
+    if (updates.gender !== undefined) syncFields.gender = updates.gender;
+    if (updates.passportNumber)
+      syncFields.passportNumber = updates.passportNumber;
+    if (Object.keys(syncFields).length > 0) {
+      await Candidate.findByIdAndUpdate(updatedPassport.candidateId, {
+        $set: syncFields,
+      });
+    }
+  }
+
   res.status(200).json(updatedPassport);
 });
 
