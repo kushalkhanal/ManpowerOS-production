@@ -8,7 +8,6 @@
     "server"
   ],
   "scripts": {
-    "prepare": "husky install",
     "server": "cd server && npm run dev",
     "client": "cd client && npm run dev",
     "build": "cd server && npm run build",

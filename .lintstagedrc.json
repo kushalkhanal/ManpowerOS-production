@@ -1,5 +1,0 @@
-{
-  "*.{js,jsx,css,md,json}": [
-    "npx prettier --write"
-  ]
-}
