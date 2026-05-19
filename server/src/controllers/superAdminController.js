@@ -236,6 +236,33 @@ export const updateAgencyPlan = asyncHandler(async (req, res) => {
   return apiResponse.success(res, agency, `Agency plan updated to ${plan} successfully`);
 });
 
+/**
+ * List admin users for an agency
+ */
+export const listAgencyAdmins = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const admins = await User.find({ agencyId: id, role: 'admin' })
+    .select('name email phone isActive mustChangePassword inviteTokenExpires createdAt lastLoginAt')
+    .sort({ createdAt: -1 })
+    .lean();
+  return apiResponse.success(res, admins);
+});
+
+/**
+ * Delete an admin user from an agency
+ */
+export const deleteAgencyAdmin = asyncHandler(async (req, res) => {
+  const { id, userId } = req.params;
+
+  const admin = await User.findOne({ _id: userId, agencyId: id, role: 'admin' });
+  if (!admin) {
+    return apiResponse.notFound(res, 'Admin not found for this agency');
+  }
+
+  await User.deleteOne({ _id: userId });
+  return apiResponse.success(res, { deletedId: userId }, 'Admin deleted successfully');
+});
+
 export default {
   getPlatformStats,
   getAllAgencies,
@@ -243,5 +270,7 @@ export default {
   deleteAgency,
   impersonateAgency,
   createAdminForAgency,
-  updateAgencyPlan
+  updateAgencyPlan,
+  listAgencyAdmins,
+  deleteAgencyAdmin
 };

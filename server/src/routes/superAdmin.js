@@ -21,6 +21,8 @@ router.patch('/agencies/:id/status', sensitiveOperationRateLimiter, validateZod(
 router.delete('/agencies/:id', sensitiveOperationRateLimiter, superAdminController.deleteAgency);
 router.post('/agencies/:id/impersonate', sensitiveOperationRateLimiter, superAdminController.impersonateAgency);
 router.post('/agencies/:id/create-admin', sensitiveOperationRateLimiter, validateZod(superAdminCreateAdminSchema), superAdminController.createAdminForAgency);
+router.get('/agencies/:id/admins', superAdminController.listAgencyAdmins);
+router.delete('/agencies/:id/admins/:userId', sensitiveOperationRateLimiter, superAdminController.deleteAgencyAdmin);
 router.patch('/agencies/:id/plan', sensitiveOperationRateLimiter, validateZod(superAdminAgencyPlanSchema), superAdminController.updateAgencyPlan);
 
 export default router;

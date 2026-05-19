@@ -7,6 +7,8 @@ export const superAdminApi = {
   deleteAgency: (id) => API.delete(`/superadmin/agencies/${id}`),
   impersonateAgency: (id) => API.post(`/superadmin/agencies/${id}/impersonate`),
   createAdminForAgency: (id, data) => API.post(`/superadmin/agencies/${id}/create-admin`, data),
+  listAgencyAdmins: (id) => API.get(`/superadmin/agencies/${id}/admins`),
+  deleteAgencyAdmin: (id, userId) => API.delete(`/superadmin/agencies/${id}/admins/${userId}`),
   updateAgencyPlan: (id, data) => API.patch(`/superadmin/agencies/${id}/plan`, data)
 };
 
