@@ -31,7 +31,12 @@ export const demandsApi = {
   getExpiring: () => api.get('/demands/expiring'),
   getEligibleCandidates: (id) => api.get(`/demands/${id}/eligible-candidates`),
   assignCandidate: (id, candidateId) => api.post(`/demands/${id}/assign`, { candidateId }),
-  removeCandidate: (id, candidateId) => api.delete(`/demands/${id}/assign/${candidateId}`)
+  removeCandidate: (id, candidateId) => api.delete(`/demands/${id}/assign/${candidateId}`),
+  toggleInterview: (id, candidateId) => api.patch(`/demands/${id}/interview/${candidateId}`),
+  exportCandidates: (id, filter = 'all') => api.get(`/demands/${id}/export`, {
+    params: { filter },
+    responseType: 'blob',
+  }),
 };
 
 export default demandsApi;

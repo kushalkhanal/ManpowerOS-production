@@ -49,6 +49,8 @@ router.patch(
 );
 router.post("/:id/assign", jobDemandController.assignCandidate);
 router.delete("/:id/assign/:candidateId", jobDemandController.removeCandidate);
+router.patch("/:id/interview/:candidateId", checkEditAccess, jobDemandController.toggleInterviewRequired);
+router.get("/:id/export", jobDemandController.exportCandidates);
 router.delete("/:id", checkDeleteAccess, jobDemandController.deleteDemand);
 
 export default router;

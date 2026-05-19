@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useJobDemands } from '../hooks/useJobDemands';
 import { passportPoolApi } from '../api';
+import { demandsApi } from '../api/demands.api';
 import { useAuth } from '../context/AuthContext';
 import {
   COUNTRY_FLAGS, DEMAND_STATUS_COLORS, DEMAND_STATUS_LABELS, NEPAL_MINIMUM_WAGE
@@ -11,7 +12,8 @@ import { showToast } from '../components/ToastProvider';
 import { formatNPR } from '../utils/currency';
 import {
   ArrowLeft, RefreshCw, UserPlus, Pencil, AlertCircle, AlertTriangle,
-  X, Search, FileText, Briefcase, Building2, Mail, Phone, MapPin, Calendar
+  X, Search, FileText, Briefcase, Building2, Mail, Phone, MapPin, Calendar,
+  Download, CheckSquare, Square
 } from 'lucide-react';
 
 // ─── Constants & helpers ──────────────────────────────────────────────────────
@@ -230,6 +232,8 @@ const DemandDetail = () => {
   const [candidateToRemove, setCandidateToRemove] = useState(null);
   const [statusToChange, setStatusToChange]       = useState(null);
   const [showStatusConfirm, setShowStatusConfirm] = useState(false);
+  const [interviewMap, setInterviewMap]           = useState({});
+  const [exportingExcel, setExportingExcel]       = useState(false);
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [savingEdit, setSavingEdit]       = useState(false);
@@ -310,6 +314,50 @@ const DemandDetail = () => {
       showToast.error(err.response?.data?.message || 'Failed to allocate from passport pool');
     } finally {
       setAllocatingPassportId(null);
+    }
+  };
+
+  // Sync interviewMap when demand loads
+  useEffect(() => {
+    if (currentDemand?.interviewRequired) {
+      const map = {};
+      const raw = currentDemand.interviewRequired;
+      if (raw instanceof Map) {
+        raw.forEach((v, k) => { map[k] = v; });
+      } else if (typeof raw === 'object') {
+        Object.entries(raw).forEach(([k, v]) => { map[k] = v; });
+      }
+      setInterviewMap(map);
+    }
+  }, [currentDemand]);
+
+  const handleToggleInterview = async (candidateId) => {
+    const prev = !!interviewMap[candidateId];
+    // Optimistic update
+    setInterviewMap(m => ({ ...m, [candidateId]: !prev }));
+    try {
+      await demandsApi.toggleInterview(id, candidateId);
+    } catch (err) {
+      // Rollback
+      setInterviewMap(m => ({ ...m, [candidateId]: prev }));
+      showToast.error(err.response?.data?.message || 'Failed to update interview flag');
+    }
+  };
+
+  const handleExportExcel = async (filter = 'all') => {
+    setExportingExcel(true);
+    try {
+      const res = await demandsApi.exportCandidates(id, filter);
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `demand-${id}-candidates-${filter}.xlsx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      showToast.error('Export failed');
+    } finally {
+      setExportingExcel(false);
     }
   };
 
@@ -525,12 +573,32 @@ const DemandDetail = () => {
             <PanelCard
               title={`Assigned candidates (${currentDemand.assignedCandidates?.length || 0})`}
               action={
-                <button
-                  onClick={loadMatchingPassports}
-                  className="text-xs text-primary hover:underline font-medium"
-                >
-                  + Assign from pool
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleExportExcel('interview')}
+                    disabled={exportingExcel}
+                    title="Export interview candidates"
+                    className="flex items-center gap-1 text-xs px-2 py-1 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors text-gray-600"
+                  >
+                    <Download size={12} />
+                    Interview
+                  </button>
+                  <button
+                    onClick={() => handleExportExcel('all')}
+                    disabled={exportingExcel}
+                    title="Export all candidates"
+                    className="flex items-center gap-1 text-xs px-2 py-1 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors text-gray-600"
+                  >
+                    <Download size={12} />
+                    All
+                  </button>
+                  <button
+                    onClick={loadMatchingPassports}
+                    className="text-xs text-primary hover:underline font-medium"
+                  >
+                    + Assign from pool
+                  </button>
+                </div>
               }
             >
               {!currentDemand.assignedCandidates?.length ? (
@@ -538,7 +606,7 @@ const DemandDetail = () => {
               ) : (
                 <ul className="divide-y divide-gray-50">
                   {currentDemand.assignedCandidates.map(c => (
-                    <li key={c._id} className="flex items-center justify-between py-2.5">
+                    <li key={c._id} className="flex items-center justify-between py-2.5 gap-2">
                       <div className="min-w-0 flex-1">
                         <Link
                           to={`/candidates/${c._id}`}
@@ -550,9 +618,23 @@ const DemandDetail = () => {
                           <p className="text-xs font-mono text-gray-500 mt-0.5">{c.passportNumber}</p>
                         )}
                       </div>
+                      {/* Interview toggle */}
+                      <button
+                        onClick={() => handleToggleInterview(c._id)}
+                        title={interviewMap[c._id] ? 'Interview required (click to remove)' : 'Mark interview required'}
+                        className="flex items-center gap-1 text-xs shrink-0 px-1.5 py-1 rounded hover:bg-gray-100 transition-colors"
+                      >
+                        {interviewMap[c._id]
+                          ? <CheckSquare size={14} className="text-primary" />
+                          : <Square size={14} className="text-gray-300" />
+                        }
+                        <span className={interviewMap[c._id] ? 'text-primary font-medium' : 'text-gray-400'}>
+                          Interview
+                        </span>
+                      </button>
                       <button
                         onClick={() => setCandidateToRemove(c._id)}
-                        className="text-xs text-red-500 hover:text-red-700 px-2 py-1 hover:bg-red-50 rounded transition-colors"
+                        className="text-xs text-red-500 hover:text-red-700 px-2 py-1 hover:bg-red-50 rounded transition-colors shrink-0"
                       >
                         Remove
                       </button>
