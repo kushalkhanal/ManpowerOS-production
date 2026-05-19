@@ -6,9 +6,14 @@ import InsuranceSsf from "../models/InsuranceSsf.js";
 import JobDemand from "../models/JobDemand.js";
 import AgencyDocument from "../models/AgencyDocument.js";
 import User from "../models/User.js";
+import ManualAlert from "../models/ManualAlert.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import logger from "../config/logger.js";
-import { getCachedAlerts, setCachedAlerts } from "../cache/alertCache.js";
+import {
+  getCachedAlerts,
+  setCachedAlerts,
+  invalidateAlertCache,
+} from "../cache/alertCache.js";
 
 let alertIdCounter = 1;
 const generateAlertId = () => `alert_${Date.now()}_${alertIdCounter++}`;
@@ -437,16 +442,58 @@ const getAlertsDataCached = async (agencyId) => {
   return fresh;
 };
 
+const getManualAlertsForUser = async (agencyId, userId, userRole) => {
+  const query = {
+    agencyId,
+    $or: [
+      { targetRoles: "all" },
+      { targetRoles: userRole },
+      { targetUserIds: userId },
+    ],
+  };
+  const manuals = await ManualAlert.find(query)
+    .sort({ createdAt: -1 })
+    .limit(50)
+    .lean();
+  return manuals.map((m) => ({
+    alertId: `manual_${m._id}`,
+    type: "manual",
+    severity: m.severity,
+    candidateId: null,
+    candidateName: null,
+    candidatePhone: null,
+    message: m.message,
+    actionUrl: m.actionUrl || "/alerts",
+    dueDate: null,
+    isManual: true,
+    manualAlertId: m._id.toString(),
+    createdByName: m.createdByName,
+    createdAt: m.createdAt,
+  }));
+};
+
 const getAlerts = asyncHandler(async (req, res) => {
-  const { alerts, total } = await getAlertsDataCached(req.user.agencyId);
-  res.status(200).json({ alerts, total });
+  const { alerts: systemAlerts } = await getAlertsDataCached(req.user.agencyId);
+  const manualAlerts = await getManualAlertsForUser(
+    req.user.agencyId,
+    req.user.userId,
+    req.user.role,
+  );
+  const alerts = [...manualAlerts, ...systemAlerts];
+  res.status(200).json({ alerts, total: alerts.length });
 });
 
 const getAlertCounts = asyncHandler(async (req, res) => {
-  const { alerts, total } = await getAlertsDataCached(req.user.agencyId);
+  const { alerts: systemAlerts } = await getAlertsDataCached(req.user.agencyId);
+  const manualAlerts = await getManualAlertsForUser(
+    req.user.agencyId,
+    req.user.userId,
+    req.user.role,
+  );
+  const alerts = [...manualAlerts, ...systemAlerts];
 
   const counts = {
-    total,
+    total: alerts.length,
     critical: 0,
     warning: 0,
     info: 0,
@@ -461,10 +508,6 @@ const getAlertCounts = asyncHandler(async (req, res) => {
   res.status(200).json(counts);
 });
 
-let manualAlertIdCounter = 1;
-const generateManualAlertId = () =>
-  `manual_${Date.now()}_${manualAlertIdCounter++}`;
-
 const createManualAlert = asyncHandler(async (req, res) => {
   const {
     message,
@@ -474,13 +517,10 @@ const createManualAlert = asyncHandler(async (req, res) => {
     actionUrl,
   } = req.body;
 
-  if (!message || !message.trim()) {
-    return res.status(400).json({ message: "Message is required" });
-  }
-
-  const alerts = [];
-  const validSeverities = ["critical", "warning", "info"];
-  const validSeverity = validSeverities.includes(severity) ? severity : "info";
+  const creator = await User.findById(req.user.userId).select("name").lean();
+  const validSeverity = ["critical", "warning", "info"].includes(severity)
+    ? severity
+    : "info";
 
   if (targetRoles.length === 0 && targetUsers.length === 0) {
     return res
@@ -488,89 +528,35 @@ const createManualAlert = asyncHandler(async (req, res) => {
       .json({ message: "Please select at least one target (role or user)" });
   }
 
-  if (targetRoles.includes("all")) {
-    const users = await User.find({
-      agencyId: req.user.agencyId,
-      isActive: true,
-    })
-      .select("_id name role")
-      .lean();
-    for (const user of users) {
-      alerts.push({
-        alertId: generateManualAlertId(),
-        type: "manual",
-        severity: validSeverity,
-        isManual: true,
-        createdBy: req.user.userId,
-        message: message.trim(),
-        targetUserId: user._id,
-        targetUserName: user.name,
-        targetRole: user.role,
-        actionUrl: actionUrl || "/dashboard",
-        createdAt: new Date(),
-      });
-    }
-  } else {
-    if (targetRoles.length > 0) {
-      const users = await User.find({
-        agencyId: req.user.agencyId,
-        role: { $in: targetRoles },
-        isActive: true,
-      })
-        .select("_id name role")
-        .lean();
-
-      for (const user of users) {
-        alerts.push({
-          alertId: generateManualAlertId(),
-          type: "manual",
-          severity: validSeverity,
-          isManual: true,
-          createdBy: req.user.userId,
-          message: message.trim(),
-          targetUserId: user._id,
-          targetUserName: user.name,
-          targetRole: user.role,
-          actionUrl: actionUrl || "/dashboard",
-          createdAt: new Date(),
-        });
-      }
-    }
-
-    if (targetUsers.length > 0) {
-      const specificUsers = await User.find({
-        agencyId: req.user.agencyId,
-        _id: { $in: targetUsers },
-        isActive: true,
-      })
-        .select("_id name role")
-        .lean();
-
-      for (const user of specificUsers) {
-        if (!targetRoles.includes(user.role)) {
-          alerts.push({
-            alertId: generateManualAlertId(),
-            type: "manual",
-            severity: validSeverity,
-            isManual: true,
-            createdBy: req.user.userId,
-            message: message.trim(),
-            targetUserId: user._id,
-            targetUserName: user.name,
-            targetRole: user.role,
-            actionUrl: actionUrl || "/dashboard",
-            createdAt: new Date(),
-          });
-        }
-      }
-    }
-  }
-
-  res.status(201).json({
-    message: "Alert sent successfully",
-    recipientCount: alerts.length,
-    alerts,
+  const saved = await ManualAlert.create({
+    agencyId: req.user.agencyId,
+    message: message.trim(),
+    severity: validSeverity,
+    targetRoles: targetRoles.length > 0 ? targetRoles : ["all"],
+    targetUserIds: targetUsers,
+    createdBy: req.user.userId,
+    createdByName: creator?.name || "Admin",
+    actionUrl: actionUrl || "/alerts",
   });
+
+  invalidateAlertCache(req.user.agencyId);
+
+  res
+    .status(201)
+    .json({ message: "Alert sent successfully", alertId: saved._id });
 });
 
-export { getAlerts, getAlertCounts, createManualAlert };
+const deleteManualAlert = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const alert = await ManualAlert.findOne({
+    _id: id,
+    agencyId: req.user.agencyId,
+  });
+  if (!alert) return res.status(404).json({ message: "Alert not found" });
+
+  await alert.deleteOne();
+  invalidateAlertCache(req.user.agencyId);
+  res.status(200).json({ message: "Alert deleted" });
+});
+
+export { getAlerts, getAlertCounts, createManualAlert, deleteManualAlert };

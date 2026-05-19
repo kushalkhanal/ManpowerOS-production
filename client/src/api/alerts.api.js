@@ -1,9 +1,10 @@
-import api from './axios.js';
+import api from "./axios.js";
 
 export const alertsApi = {
-  getAll: () => api.get('/alerts'),
-  getCounts: () => api.get('/alerts/counts'),
-  create: (data) => api.post('/alerts', data)
+  getAll: () => api.get("/alerts"),
+  getCounts: () => api.get("/alerts/counts"),
+  create: (data) => api.post("/alerts", data),
+  deleteManual: (id) => api.delete(`/alerts/${id}`),
 };
 
 export default alertsApi;

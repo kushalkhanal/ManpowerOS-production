@@ -3,6 +3,7 @@ import {
   getAlerts,
   getAlertCounts,
   createManualAlert,
+  deleteManualAlert,
 } from "../controllers/alertController.js";
 import { authenticate } from "../middleware/authenticate.js";
 import { requireRole } from "../middleware/checkPermission.js";
@@ -21,5 +22,7 @@ router.post(
   validateZod(manualAlertSchema),
   createManualAlert,
 );
+
+router.delete("/:id", requireRole("admin"), deleteManualAlert);
 
 export default router;
