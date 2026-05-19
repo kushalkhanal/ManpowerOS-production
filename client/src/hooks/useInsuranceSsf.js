@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { insuranceSsfApi } from '../api';
 import { toFormData } from '../utils/formData';
 import { useAsyncState } from './useAsyncState';
+import { devError } from '../utils/devLog';
 
 export function useInsuranceSsf() {
   const [record, setRecord] = useState(null);
@@ -36,7 +37,7 @@ export function useInsuranceSsf() {
       const response = await insuranceSsfApi.getExpiring();
       return response.data;
     } catch (err) {
-      console.error('Failed to get expiring insurance:', err);
+      devError('Failed to get expiring insurance:', err);
       return [];
     }
   }, []);
@@ -46,7 +47,7 @@ export function useInsuranceSsf() {
       const response = await insuranceSsfApi.getIncompleteFeims();
       return response.data;
     } catch (err) {
-      console.error('Failed to get incomplete records:', err);
+      devError('Failed to get incomplete records:', err);
       return [];
     }
   }, []);

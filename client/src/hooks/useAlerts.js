@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { alertApi } from '../api';
 import { useAsyncState } from './useAsyncState';
+import { devError } from '../utils/devLog';
 
 export function useAlerts() {
   const [alerts, setAlerts] = useState([]);
@@ -34,7 +35,7 @@ export function useAlerts() {
       setCounts(response.data);
       return response.data;
     } catch (err) {
-      console.error('Failed to fetch alert counts:', err);
+      devError('Failed to fetch alert counts:', err);
       return { total: 0, critical: 0, warning: 0, info: 0, byType: {} };
     }
   }, []);

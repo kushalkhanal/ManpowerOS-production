@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTasks } from '../hooks/useTasks';
+import { devError } from '../utils/devLog';
 import { useStaff } from '../hooks/useStaff';
 import { useCandidates } from '../hooks/useCandidates';
 import { useJobDemands } from '../hooks/useJobDemands';
@@ -71,7 +72,7 @@ const TaskDetailModal = ({ isOpen, onClose, taskId, onUpdate }) => {
           const res = await taskApi.getById(taskId);
           loadTask(res.data);
         } catch (err) {
-          console.error('Failed to load task:', err);
+          devError('Failed to load task:', err);
         }
       };
       fetchTask();

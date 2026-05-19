@@ -2,20 +2,17 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Agency from '../models/Agency.js';
 import logger from '../config/logger.js';
+import { config } from '../config/env.js';
 
 export const authenticate = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   try {
-    const JWT_SECRET = process.env.JWT_SECRET;
-    if (!JWT_SECRET) {
-      throw new Error('JWT_SECRET not configured in environment');
-    }
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ message: 'No token provided' });
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, config.jwtSecret);
 
     const user = await User.findById(decoded.userId).populate('agencyId', 'name subdomain plan isActive');
 

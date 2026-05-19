@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { candidatesApi } from '../api';
+import { devError } from '../utils/devLog';
 
 const ActivityLogModal = ({ isOpen, onClose, candidateId }) => {
   const [logs, setLogs] = useState([]);
@@ -27,7 +28,7 @@ const ActivityLogModal = ({ isOpen, onClose, candidateId }) => {
         total: response.data.total
       });
     } catch (err) {
-      console.error('Failed to load activity logs:', err);
+      devError('Failed to load activity logs:', err);
     } finally {
       setLoading(false);
     }

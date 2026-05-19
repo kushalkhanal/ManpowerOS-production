@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { agencyDocApi } from '../api';
 import { useAsyncState } from './useAsyncState';
+import { devError } from '../utils/devLog';
 
 export function useAgencyDocuments() {
   const [documents, setDocuments] = useState([]);
@@ -29,7 +30,7 @@ export function useAgencyDocuments() {
       setExpiringDocs(response.data);
       return response.data;
     } catch (err) {
-      console.error('Failed to fetch expiring documents:', err);
+      devError('Failed to fetch expiring documents:', err);
       return [];
     }
   }, []);
@@ -69,7 +70,7 @@ export function useAgencyDocuments() {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Download failed:', err);
+      devError('Download failed:', err);
       throw err;
     }
   }, []);

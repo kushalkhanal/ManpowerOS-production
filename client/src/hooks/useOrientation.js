@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { orientationApi } from '../api';
 import { toFormData } from '../utils/formData';
 import { useAsyncState } from './useAsyncState';
+import { devError } from '../utils/devLog';
 
 export function useOrientation() {
   const [orientations, setOrientations] = useState([]);
@@ -42,7 +43,7 @@ export function useOrientation() {
       const response = await orientationApi.getUpcoming();
       return response.data;
     } catch (err) {
-      console.error('Failed to get upcoming orientations:', err);
+      devError('Failed to get upcoming orientations:', err);
       return [];
     }
   }, []);
@@ -52,7 +53,7 @@ export function useOrientation() {
       const response = await orientationApi.getMissingCertificates();
       return response.data;
     } catch (err) {
-      console.error('Failed to get missing certificates:', err);
+      devError('Failed to get missing certificates:', err);
       return [];
     }
   }, []);

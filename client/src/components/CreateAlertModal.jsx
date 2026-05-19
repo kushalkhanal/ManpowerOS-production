@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { alertsApi } from '../api/alerts.api';
 import { staffApi } from '../api';
+import { devError } from '../utils/devLog';
 
 const ROLES = [
   { value: 'admin', label: 'Admin' },
@@ -37,7 +38,7 @@ const CreateAlertModal = ({ isOpen, onClose }) => {
       const res = await staffApi.getAll({ limit: 100 });
       setStaffList(res.data.data || []);
     } catch (err) {
-      console.error('Failed to load staff:', err);
+      devError('Failed to load staff:', err);
     }
   };
 

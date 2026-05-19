@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { sponsorsApi } from '../api/sponsors.api';
 import { useAsyncState } from './useAsyncState';
+import { devError } from '../utils/devLog';
 
 export function useSponsors() {
   const [sponsors, setSponsors] = useState([]);
@@ -68,7 +69,7 @@ export function useSponsors() {
       const response = await sponsorsApi.search(query);
       return response.data;
     } catch (err) {
-      console.error('Search sponsors error:', err);
+      devError('Search sponsors error:', err);
       return [];
     }
   }, []);

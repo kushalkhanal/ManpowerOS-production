@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { taskApi } from '../api';
 import { useAsyncState } from './useAsyncState';
+import { devError } from '../utils/devLog';
 
 export function useTasks() {
   const [tasks, setTasks] = useState([]);
@@ -30,7 +31,7 @@ export function useTasks() {
       setStats(response.data);
       return response.data;
     } catch (err) {
-      console.error('Failed to fetch task stats:', err);
+      devError('Failed to fetch task stats:', err);
       return stats;
     }
   }, [stats]);

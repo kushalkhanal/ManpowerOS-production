@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { staffApi } from '../api';
 import { useAsyncState } from './useAsyncState';
+import { devError } from '../utils/devLog';
 
 export function useStaff() {
   const [users, setUsers] = useState([]);
@@ -37,7 +38,7 @@ export function useStaff() {
       setActivities(response.data);
       return response.data;
     } catch (err) {
-      console.error('Failed to fetch activity:', err);
+      devError('Failed to fetch activity:', err);
       return [];
     }
   }, []);
@@ -48,7 +49,7 @@ export function useStaff() {
       setAssignedCandidates(response.data);
       return response.data;
     } catch (err) {
-      console.error('Failed to fetch candidates:', err);
+      devError('Failed to fetch candidates:', err);
       return [];
     }
   }, []);

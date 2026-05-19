@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { staffApi } from '../../api';
 import { useAuth } from '../../context/AuthContext';
+import { devError } from '../../utils/devLog';
 import { toast } from 'react-hot-toast';
 import { BSDatePicker } from '../ui/index.js';
 import { ConfirmDialog } from '../ui';
@@ -65,7 +66,7 @@ const StaffSection = () => {
       const response = await staffApi.getAll({ limit: 50 });
       setStaff(response.data.data || []);
     } catch (err) {
-      console.error('Failed to load staff:', err);
+      devError('Failed to load staff:', err);
     } finally {
       setLoading(false);
     }
@@ -79,7 +80,7 @@ const StaffSection = () => {
       const data = await response.json();
       setOnlineCount(Array.isArray(data) ? data.length : 0);
     } catch (err) {
-      console.error('Failed to check online:', err);
+      devError('Failed to check online:', err);
     }
   };
 

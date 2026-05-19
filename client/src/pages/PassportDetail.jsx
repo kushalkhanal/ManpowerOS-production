@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { usePassports } from '../hooks/usePassports';
 import { passportApi as passportsApi } from '../api';
+import { devError } from '../utils/devLog';
 import StatusChangeModal from '../components/StatusChangeModal';
 import EditPassportModal from '../components/EditPassportModal';
 import EditCandidateSectionModal from '../components/EditCandidateSectionModal';
@@ -103,7 +104,7 @@ const PassportDetail = () => {
       setPassport(data.passport);
       setLogs(data.logs || []);
     } catch (err) {
-      console.error('Error loading passport:', err);
+      devError('Error loading passport:', err);
     }
   };
 
@@ -209,7 +210,7 @@ const PassportDetail = () => {
                   setPassport(updated);
                   window.open(`/print/cv/${updated.candidateId._id}`, '_blank');
                 } catch (err) {
-                  console.error('Failed to ensure candidate for CV:', err);
+                  devError('Failed to ensure candidate for CV:', err);
                 } finally {
                   setEnsuringCandidate(false);
                 }

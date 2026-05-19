@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { passportApi, candidatesApi } from '../../api';
 import { NEPAL_DISTRICTS } from '../../utils/nepalDistricts';
+import { devError } from '../../utils/devLog';
 
 const STEPS = {
   UPLOAD: 'upload',
@@ -128,7 +129,7 @@ export default function PassportScanner() {
       
       setStep(STEPS.REVIEW);
     } catch (err) {
-      console.error('Scan error:', err);
+      devError('Scan error:', err);
       setError(err.response?.data?.message || 'Failed to scan passport. Please try again.');
       setStep(STEPS.UPLOAD);
     } finally {
@@ -174,7 +175,7 @@ export default function PassportScanner() {
       const response = await candidatesApi.getAll({ search: query, limit: 10 });
       setCandidates(response.data.data || []);
     } catch (err) {
-      console.error('Candidate search error:', err);
+      devError('Candidate search error:', err);
     }
   }, []);
 
@@ -270,7 +271,7 @@ export default function PassportScanner() {
       setSavedPassport(response.data);
       setStep(STEPS.SUCCESS);
     } catch (err) {
-      console.error('Save error:', err);
+      devError('Save error:', err);
       setError(err.response?.data?.message || 'Failed to save passport');
     } finally {
       setSaving(false);

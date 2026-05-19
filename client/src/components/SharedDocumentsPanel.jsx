@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { sharedDocumentsApi } from '../api';
 import { isValidFileSize, isValidFileType } from '../utils/validation';
+import { devError } from '../utils/devLog';
 
 const DOCUMENT_TYPES = [
   {
@@ -106,7 +107,7 @@ const SharedDocumentsPanel = ({ entityType, entityId }) => {
       const res = await sharedDocumentsApi.getDocuments(entityType, entityId);
       setDocuments(res.data);
     } catch (err) {
-      console.error('Failed to load shared documents:', err);
+      devError('Failed to load shared documents:', err);
     }
   };
 
@@ -139,7 +140,7 @@ const SharedDocumentsPanel = ({ entityType, entityId }) => {
       const res = await sharedDocumentsApi.uploadDocument(entityType, entityId, docType, file);
       setDocuments(res.data);
     } catch (err) {
-      console.error(`Failed to upload ${docType}:`, err);
+      devError(`Failed to upload ${docType}:`, err);
       const serverErrors = err.response?.data?.errors;
       const messageFromErrors = Array.isArray(serverErrors) && serverErrors.length > 0
         ? serverErrors.map(e => e.message).join(' ')

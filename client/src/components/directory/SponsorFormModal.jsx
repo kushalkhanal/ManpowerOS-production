@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Camera } from 'lucide-react';
 import { useSponsors } from '../../hooks/useSponsors';
 import { staffApi } from '../../api';
+import { devError } from '../../utils/devLog';
 import { NEPAL_PROVINCES, NEPAL_DISTRICTS, NEPAL_DISTRICTS_BY_PROVINCE } from '../../utils/constants';
 import { debounce } from '../../utils/debounce';
 
@@ -113,7 +114,7 @@ const SponsorFormModal = ({ isOpen, onClose, onSuccess, sponsor = null }) => {
       const response = await staffApi.getAll({ limit: 100 });
       setStaffList(response.data.data || []);
     } catch (err) {
-      console.error('Failed to load staff:', err);
+      devError('Failed to load staff:', err);
     }
   };
 

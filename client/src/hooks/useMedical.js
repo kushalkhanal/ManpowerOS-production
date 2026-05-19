@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { medicalApi } from '../api';
 import { toFormData } from '../utils/formData';
 import { useAsyncState } from './useAsyncState';
+import { devError } from '../utils/devLog';
 
 export function useMedical() {
   const [medicals, setMedicals] = useState([]);
@@ -45,7 +46,7 @@ export function useMedical() {
       const response = await medicalApi.getRechecks();
       return response.data;
     } catch (err) {
-      console.error('Failed to get rechecks:', err);
+      devError('Failed to get rechecks:', err);
       return [];
     }
   }, []);

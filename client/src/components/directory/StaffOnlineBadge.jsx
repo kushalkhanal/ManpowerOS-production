@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { devError } from '../../utils/devLog';
 
 const StaffOnlineBadge = ({ userId }) => {
   const [isOnline, setIsOnline] = useState(false);
@@ -12,7 +13,7 @@ const StaffOnlineBadge = ({ userId }) => {
         const data = await response.json();
         setIsOnline(data.includes(userId));
       } catch (err) {
-        console.error('Failed to check online status:', err);
+        devError('Failed to check online status:', err);
       }
     };
 

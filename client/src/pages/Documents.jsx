@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useAgencyDocuments } from '../hooks/useAgencyDocuments';
+import { devError } from '../utils/devLog';
 import DocumentUploadModal from '../components/DocumentUploadModal';
 import DocumentCard from '../components/DocumentCard';
 import { ConfirmDialog } from '../components/ui';
@@ -37,7 +38,7 @@ const Documents = () => {
     try {
       await downloadDocument(doc._id, doc.fileName);
     } catch (err) {
-      console.error('Download failed:', err);
+      devError('Download failed:', err);
     }
   };
 
@@ -48,7 +49,7 @@ const Documents = () => {
       getDocuments();
       setDocToDelete(null);
     } catch (err) {
-      console.error('Delete failed:', err);
+      devError('Delete failed:', err);
     }
   };
 

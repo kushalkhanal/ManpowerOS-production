@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext.jsx';
 import { resolveSocketServerUrl } from '../utils/socketUrl.js';
+import { devError } from '../utils/devLog';
 
 const SocketContext = createContext(null);
 
@@ -84,11 +85,11 @@ export const SocketProvider = ({ children }) => {
     });
 
     socket.on('connect_error', (error) => {
-      console.error('SocketContext: Connection error:', error.message);
+      devError('SocketContext: Connection error:', error.message);
       // Dispatch a clean force-logout event so AuthContext handles state teardown.
       // Do NOT wipe localStorage or redirect here — that caused the instant-logout bug.
       if (error.message === 'Authentication required' || error.message === 'Invalid token') {
-        console.error('SocketContext: Auth failed, dispatching force-logout');
+        devError('SocketContext: Auth failed, dispatching force-logout');
         window.dispatchEvent(new CustomEvent('force-logout'));
       }
     });

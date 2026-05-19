@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { candidatesApi } from '../api';
 import { useAsyncState } from './useAsyncState';
+import { devError } from '../utils/devLog';
 
 export function useCandidates() {
   const [candidates, setCandidates] = useState([]);
@@ -58,7 +59,7 @@ export function useCandidates() {
       setAgents(response.data);
       return response.data;
     } catch (err) {
-      console.error('Failed to get agents:', err);
+      devError('Failed to get agents:', err);
       return [];
     }
   }, []);

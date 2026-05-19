@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { jobDemandApi } from '../api';
 import { useAsyncState } from './useAsyncState';
+import { devError } from '../utils/devLog';
 
 export function useJobDemands() {
   const [demands, setDemands] = useState([]);
@@ -74,7 +75,7 @@ export function useJobDemands() {
       setExpiringDemands(response.data);
       return response.data;
     } catch (err) {
-      console.error('Failed to get expiring demands:', err);
+      devError('Failed to get expiring demands:', err);
       return [];
     }
   }, []);
@@ -84,7 +85,7 @@ export function useJobDemands() {
       const response = await jobDemandApi.getEligibleCandidates(demandId);
       return response.data;
     } catch (err) {
-      console.error('Failed to get eligible candidates:', err);
+      devError('Failed to get eligible candidates:', err);
       return [];
     }
   }, []);

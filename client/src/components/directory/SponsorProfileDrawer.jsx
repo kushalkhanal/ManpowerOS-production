@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { X, Phone, MapPin, Users, PlaneTakeoff, TrendingUp, Clock } from 'lucide-react';
 import { sponsorsApi } from '../../api';
 import { STATUS_COLORS, STATUS_LABELS, COUNTRY_FLAGS } from '../../utils/constants';
+import { devError } from '../../utils/devLog';
 
 const AGENT_STATUS = [
   { value: 'active',      label: 'Active',      cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
@@ -52,7 +53,7 @@ const SponsorProfileDrawer = ({ sponsorId, isOpen, onClose, onEdit, onStatusChan
       setSponsor(response.data);
       setNotes(response.data.notes || '');
     } catch (err) {
-      console.error('Failed to load agent:', err);
+      devError('Failed to load agent:', err);
     } finally {
       setLoading(false);
     }
@@ -76,7 +77,7 @@ const SponsorProfileDrawer = ({ sponsorId, isOpen, onClose, onEdit, onStatusChan
       setSponsor(prev => ({ ...prev, agentStatus: newStatus }));
       onStatusChange?.(sponsorId, newStatus);
     } catch (err) {
-      console.error('Failed to update status:', err);
+      devError('Failed to update status:', err);
     } finally {
       setUpdatingStatus(false);
     }
