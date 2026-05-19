@@ -1,14 +1,14 @@
 import { useReducer, useState } from 'react';
-import { showToast } from '../components/ToastProvider';
+import { showToast } from '../ToastProvider';
 import { Plus, Trash2, Save } from 'lucide-react';
-import { formReducer, createFormState, formActions } from '../hooks/useFormReducer';
+import { formReducer, createFormState, formActions } from '../../hooks/useFormReducer';
 import { ConfirmDialog } from '../ui';
 import {
   useDepartments,
   useCreateDepartment,
   useUpdateDepartment,
   useDeleteDepartment,
-} from '../hooks/queries';
+} from '../../hooks/queries';
 
 const DEPARTMENT_ACTIONS = {
   SET_SHOW_FORM: 'SET_SHOW_FORM',

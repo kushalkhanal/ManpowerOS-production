@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { feesApi } from '../../api';
+import { feeApi } from '../../api';
 
 export const feeKeys = {
   all: ['fees'],
@@ -15,7 +15,7 @@ export const useFees = (params = {}) => {
   return useQuery({
     queryKey: feeKeys.list(params),
     queryFn: async () => {
-      const response = await feesApi.getAll(params);
+      const response = await feeApi.getAll(params);
       return response.data;
     },
     staleTime: 1 * 60 * 1000,
@@ -27,7 +27,7 @@ export const useFeeDetail = (id) => {
   return useQuery({
     queryKey: feeKeys.detail(id),
     queryFn: async () => {
-      const response = await feesApi.getById(id);
+      const response = await feeApi.getById(id);
       return response.data;
     },
     enabled: !!id,
@@ -38,7 +38,7 @@ export const useFeeSummary = (params = {}) => {
   return useQuery({
     queryKey: feeKeys.summary(params),
     queryFn: async () => {
-      const response = await feesApi.getSummary(params);
+      const response = await feeApi.getSummary(params);
       return response.data;
     },
     staleTime: 2 * 60 * 1000,
@@ -49,7 +49,7 @@ export const useCandidateFeeSummary = (candidateId) => {
   return useQuery({
     queryKey: feeKeys.candidate(candidateId),
     queryFn: async () => {
-      const response = await feesApi.getCandidateSummary(candidateId);
+      const response = await feeApi.getCandidateSummary(candidateId);
       return response.data;
     },
     enabled: !!candidateId,
@@ -60,7 +60,7 @@ export const useCandidateFeeSummary = (candidateId) => {
 export const useCreateFee = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data) => feesApi.create(data),
+    mutationFn: (data) => feeApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: feeKeys.lists() });
       queryClient.invalidateQueries({ queryKey: feeKeys.all });
@@ -71,7 +71,7 @@ export const useCreateFee = () => {
 export const useUpdateFee = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }) => feesApi.update(id, data),
+    mutationFn: ({ id, data }) => feeApi.update(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: feeKeys.lists() });
       queryClient.invalidateQueries({ queryKey: feeKeys.detail(variables.id) });
@@ -82,7 +82,7 @@ export const useUpdateFee = () => {
 export const useDeleteFee = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id) => feesApi.delete(id),
+    mutationFn: (id) => feeApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: feeKeys.lists() });
     },

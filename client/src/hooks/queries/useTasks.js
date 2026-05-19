@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { tasksApi } from '../../api';
+import { taskApi } from '../../api';
 
 export const taskKeys = {
   all: ['tasks'],
@@ -16,7 +16,7 @@ export const useTasks = (params = {}) => {
   return useQuery({
     queryKey: taskKeys.list(params),
     queryFn: async () => {
-      const response = await tasksApi.getAll(params);
+      const response = await taskApi.getAll(params);
       return response.data;
     },
     staleTime: 30 * 1000,
@@ -28,7 +28,7 @@ export const useMyTasks = (params = {}) => {
   return useQuery({
     queryKey: taskKeys.mine(params),
     queryFn: async () => {
-      const response = await tasksApi.getMyTasks(params);
+      const response = await taskApi.getMyTasks(params);
       return response.data;
     },
     staleTime: 30 * 1000,
@@ -39,7 +39,7 @@ export const useTaskDetail = (id) => {
   return useQuery({
     queryKey: taskKeys.detail(id),
     queryFn: async () => {
-      const response = await tasksApi.getById(id);
+      const response = await taskApi.getById(id);
       return response.data;
     },
     enabled: !!id,
@@ -50,7 +50,7 @@ export const useCandidateTasks = (candidateId) => {
   return useQuery({
     queryKey: taskKeys.candidate(candidateId),
     queryFn: async () => {
-      const response = await tasksApi.getByCandidate(candidateId);
+      const response = await taskApi.getByCandidate(candidateId);
       return response.data;
     },
     enabled: !!candidateId,
@@ -62,7 +62,7 @@ export const useTaskStats = () => {
   return useQuery({
     queryKey: taskKeys.stats(),
     queryFn: async () => {
-      const response = await tasksApi.getStats();
+      const response = await taskApi.getStats();
       return response.data;
     },
     staleTime: 60 * 1000,
@@ -72,7 +72,7 @@ export const useTaskStats = () => {
 export const useCreateTask = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data) => tasksApi.create(data),
+    mutationFn: (data) => taskApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
       queryClient.invalidateQueries({ queryKey: taskKeys.mine() });
@@ -83,7 +83,7 @@ export const useCreateTask = () => {
 export const useUpdateTask = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }) => tasksApi.update(id, data),
+    mutationFn: ({ id, data }) => taskApi.update(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
       queryClient.invalidateQueries({ queryKey: taskKeys.detail(variables.id) });
@@ -95,7 +95,7 @@ export const useUpdateTask = () => {
 export const useUpdateTaskStatus = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }) => tasksApi.updateStatus(id, data),
+    mutationFn: ({ id, data }) => taskApi.updateStatus(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
       queryClient.invalidateQueries({ queryKey: taskKeys.detail(variables.id) });
@@ -108,7 +108,7 @@ export const useUpdateTaskStatus = () => {
 export const useDeleteTask = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id) => tasksApi.delete(id),
+    mutationFn: (id) => taskApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
       queryClient.invalidateQueries({ queryKey: taskKeys.mine() });

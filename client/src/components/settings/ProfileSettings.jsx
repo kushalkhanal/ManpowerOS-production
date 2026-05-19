@@ -1,8 +1,8 @@
 import { useReducer, useEffect } from 'react';
-import { showToast } from '../components/ToastProvider';
+import { showToast } from '../ToastProvider';
 import { Save, AlertTriangle } from 'lucide-react';
-import { formReducer, createFormState, formActions } from '../hooks/useFormReducer';
-import { useAgencySettings, useUpdateAgencySettings } from '../hooks/queries';
+import { formReducer, createFormState, formActions } from '../../hooks/useFormReducer';
+import { useAgencySettings, useUpdateAgencySettings } from '../../hooks/queries';
 
 const ProfileSettings = () => {
   const { data: settings, isLoading: loading } = useAgencySettings();

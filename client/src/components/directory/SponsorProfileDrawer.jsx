@@ -4,36 +4,10 @@ import { X, Phone, MapPin, Users, PlaneTakeoff, TrendingUp, Clock } from 'lucide
 import { sponsorsApi } from '../../api';
 import { STATUS_COLORS, STATUS_LABELS, COUNTRY_FLAGS } from '../../utils/constants';
 import { devError } from '../../utils/devLog';
+import { getAvatarColor, getInitials, formatRelativeDate } from '../../utils/format';
+import { AGENT_STATUS } from '../../constants/roles';
 
-const AGENT_STATUS = [
-  { value: 'active',      label: 'Active',      cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
-  { value: 'passive',     label: 'Passive',     cls: 'bg-amber-100 text-amber-800 border-amber-200' },
-  { value: 'blacklisted', label: 'Blacklisted', cls: 'bg-red-100 text-red-800 border-red-200' },
-];
-
-const getAvatarColor = (name) => {
-  const colors = ['bg-primary', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500', 'bg-pink-500', 'bg-teal-500', 'bg-orange-500'];
-  const hash = name?.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) || 0;
-  return colors[hash % colors.length];
-};
-
-const getInitials = (name) => {
-  if (!name) return '??';
-  const parts = name.trim().split(' ');
-  return parts.length >= 2
-    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-    : name.substring(0, 2).toUpperCase();
-};
-
-const formatLastReferral = (date) => {
-  if (!date) return 'Never';
-  const days = Math.floor((Date.now() - new Date(date)) / 86400000);
-  if (days === 0) return 'Today';
-  if (days === 1) return 'Yesterday';
-  if (days < 30) return `${days}d ago`;
-  const months = Math.floor(days / 30);
-  return `${months}mo ago`;
-};
+const formatLastReferral = formatRelativeDate;
 
 const SponsorProfileDrawer = ({ sponsorId, isOpen, onClose, onEdit, onStatusChange }) => {
   const [sponsor, setSponsor] = useState(null);

@@ -195,6 +195,7 @@ export const getPersonProfile = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: 'Person not found' });
   }
 
+  const agencyId = candidate.agencyId;
   const [
     passport,
     documents,
@@ -203,16 +204,18 @@ export const getPersonProfile = asyncHandler(async (req, res) => {
     orientations,
     demandAssignments
   ] = await Promise.all([
-    Passport.findById(candidate.passportId).lean(),
-    SharedDocument.findOne({ candidateId: candidate._id }).lean(),
-    Medical.find({ candidateId: candidate._id })
+    candidate.passportId
+      ? Passport.findOne({ _id: candidate.passportId, agencyId }).lean()
+      : null,
+    SharedDocument.findOne({ agencyId, candidateId: candidate._id }).lean(),
+    Medical.find({ agencyId, candidateId: candidate._id })
       .sort({ createdAt: -1 })
       .lean(),
-    InsuranceSsf.findOne({ candidateId: candidate._id }).lean(),
-    Orientation.find({ candidateId: candidate._id })
+    InsuranceSsf.findOne({ agencyId, candidateId: candidate._id }).lean(),
+    Orientation.find({ agencyId, candidateId: candidate._id })
       .sort({ startDate: -1 })
       .lean(),
-    DemandAssignment.find({ candidateId: candidate._id })
+    DemandAssignment.find({ agencyId, candidateId: candidate._id })
       .populate(
         'demandId',
         'employerCompanyName employerCountry jobCategory lotNumber status'

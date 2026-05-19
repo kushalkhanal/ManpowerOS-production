@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { passportsApi } from '../../api';
+import { passportApi } from '../../api';
 
 export const passportKeys = {
   all: ['passports'],
@@ -14,7 +14,7 @@ export const usePassports = (params = {}) => {
   return useQuery({
     queryKey: passportKeys.list(params),
     queryFn: async () => {
-      const response = await passportsApi.getAll(params);
+      const response = await passportApi.getAll(params);
       return response.data;
     },
     staleTime: 2 * 60 * 1000,
@@ -26,7 +26,7 @@ export const usePassportDetail = (id) => {
   return useQuery({
     queryKey: passportKeys.detail(id),
     queryFn: async () => {
-      const response = await passportsApi.getById(id);
+      const response = await passportApi.getById(id);
       return response.data;
     },
     enabled: !!id,
@@ -37,7 +37,7 @@ export const useExpiringPassports = () => {
   return useQuery({
     queryKey: passportKeys.expiring(),
     queryFn: async () => {
-      const response = await passportsApi.getExpiring();
+      const response = await passportApi.getExpiring();
       return response.data;
     },
     staleTime: 5 * 60 * 1000,
@@ -47,7 +47,7 @@ export const useExpiringPassports = () => {
 export const useCreatePassport = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data) => passportsApi.create(data),
+    mutationFn: (data) => passportApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: passportKeys.lists() });
     },
@@ -57,7 +57,7 @@ export const useCreatePassport = () => {
 export const useUpdatePassport = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }) => passportsApi.update(id, data),
+    mutationFn: ({ id, data }) => passportApi.update(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: passportKeys.lists() });
       queryClient.invalidateQueries({ queryKey: passportKeys.detail(variables.id) });
@@ -68,7 +68,7 @@ export const useUpdatePassport = () => {
 export const useUpdatePassportStatus = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }) => passportsApi.updateStatus(id, data),
+    mutationFn: ({ id, data }) => passportApi.updateStatus(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: passportKeys.lists() });
       queryClient.invalidateQueries({ queryKey: passportKeys.detail(variables.id) });
@@ -79,7 +79,7 @@ export const useUpdatePassportStatus = () => {
 export const useDeletePassport = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id) => passportsApi.delete(id),
+    mutationFn: (id) => passportApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: passportKeys.lists() });
     },

@@ -11,7 +11,9 @@ class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, info) {
-    console.error('ErrorBoundary caught:', error, info.componentStack);
+    if (import.meta.env.DEV) {
+      console.error('ErrorBoundary caught:', error, info.componentStack);
+    }
   }
 
   handleReset = () => {

@@ -20,6 +20,7 @@ import JobDemand from '../../models/JobDemand.js';
 import User from '../../models/User.js';
 import { TERMINAL_STATUSES, BLOCKING_STATUSES } from '../../constants/workflow.js';
 import { sendStageChangeEmail } from '../emailService.js';
+import logger from '../../config/logger.js';
 
 /**
  * Derives the correct pipeline status for a candidate based on current data.
@@ -132,7 +133,7 @@ export async function computeAndSavePipelineStatus(candidateId) {
           });
         }
       })
-      .catch(() => {});
+      .catch((err) => logger.warn('[pipeline] Stage-change email failed', { candidateId, error: err.message }));
   }
 
   return newStatus;

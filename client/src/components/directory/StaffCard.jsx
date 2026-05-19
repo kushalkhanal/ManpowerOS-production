@@ -1,28 +1,13 @@
 import { useAuth } from '../../context/AuthContext';
+import { ROLE_LABELS } from '../../constants/roles';
+import { getInitials } from '../../utils/format';
 
 const ROLE_COLORS = {
   admin: 'bg-red-100 text-red-800',
   manager: 'bg-teal-100 text-teal-800',
   staff: 'bg-amber-100 text-amber-800',
   documentation: 'bg-primary-100 text-primary-800',
-  agent: 'bg-green-100 text-green-800'
-};
-
-const ROLE_LABELS = {
-  admin: 'Admin',
-  manager: 'Manager',
-  staff: 'Staff',
-  documentation: 'Documentation',
-  agent: 'Agent'
-};
-
-const getInitials = (name) => {
-  if (!name) return '??';
-  const parts = name.split(' ');
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  }
-  return name.substring(0, 2).toUpperCase();
+  agent: 'bg-green-100 text-green-800',
 };
 
 const StaffCard = ({ staff, onEdit, onResetPassword, onToggle, onDelete }) => {

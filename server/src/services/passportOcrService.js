@@ -5,7 +5,7 @@ import logger from '../config/logger.js';
 let visionClient = null;
 if (process.env.GOOGLE_VISION_KEY_FILE) {
   try {
-    const vision = require('@google-cloud/vision');
+    const { default: vision } = await import('@google-cloud/vision');
     visionClient = new vision.ImageAnnotatorClient({
       keyFilename: process.env.GOOGLE_VISION_KEY_FILE
     });

@@ -1,16 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { Camera } from 'lucide-react';
 import { useSponsors } from '../../hooks/useSponsors';
-import { staffApi } from '../../api';
+import { useStaffList } from '../../hooks/useStaffList';
 import { devError } from '../../utils/devLog';
 import { NEPAL_PROVINCES, NEPAL_DISTRICTS, NEPAL_DISTRICTS_BY_PROVINCE } from '../../utils/constants';
 import { debounce } from '../../utils/debounce';
+import { SPONSOR_ROLE_DEFAULT_PERMISSIONS } from '../../constants/roles';
 
 const SponsorFormModal = ({ isOpen, onClose, onSuccess, sponsor = null }) => {
   const { createSponsor, updateSponsor, loading } = useSponsors();
+  const { staffList, loadStaff } = useStaffList();
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState({});
-  const [staffList, setStaffList] = useState([]);
   const [searchStaff, setSearchStaff] = useState('');
   const [showStaffDropdown, setShowStaffDropdown] = useState(false);
   const [photoFile, setPhotoFile] = useState(null);
@@ -18,13 +19,7 @@ const SponsorFormModal = ({ isOpen, onClose, onSuccess, sponsor = null }) => {
   const [districtSearch, setDistrictSearch] = useState('');
   const photoInputRef = useRef(null);
 
-  const ROLE_DEFAULT_PERMISSIONS = {
-    agent:        ['canViewOwnCandidates'],
-    senior_agent: ['canReferCandidates', 'canViewOwnCandidates', 'canViewAllCandidates'],
-    partner:      ['canReferCandidates', 'canViewAllCandidates', 'canExportCandidates'],
-    coordinator:  ['canReferCandidates', 'canViewAllCandidates', 'canEditOwnCandidates'],
-    manager:      ['canReferCandidates', 'canViewAllCandidates', 'canEditOwnCandidates', 'canExportCandidates'],
-  };
+  const ROLE_DEFAULT_PERMISSIONS = SPONSOR_ROLE_DEFAULT_PERMISSIONS;
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -108,15 +103,6 @@ const SponsorFormModal = ({ isOpen, onClose, onSuccess, sponsor = null }) => {
       setErrors({});
     }
   }, [isOpen, sponsor]);
-
-  const loadStaff = async () => {
-    try {
-      const response = await staffApi.getAll({ limit: 100 });
-      setStaffList(response.data.data || []);
-    } catch (err) {
-      devError('Failed to load staff:', err);
-    }
-  };
 
   const handlePhotoChange = (e) => {
     const file = e.target.files?.[0];

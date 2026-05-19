@@ -7,6 +7,8 @@ import { getDefaultPermissions } from '../middleware/rbac.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import crypto from 'crypto';
 import { sendInviteEmail } from '../services/emailService.js';
+import { config } from '../config/env.js';
+import logger from '../config/logger.js';
 
 const getUsers = asyncHandler(async (req, res) => {
   const { role, department, isActive, search, page = 1, limit = 50 } = req.query;
@@ -170,7 +172,7 @@ const inviteUser = asyncHandler(async (req, res) => {
     permissions: getDefaultPermissions(role)
   });
 
-  const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+  const clientUrl = config.clientUrl;
   const inviteLink = `${clientUrl}/set-password?token=${rawToken}`;
 
   sendInviteEmail({
@@ -178,7 +180,7 @@ const inviteUser = asyncHandler(async (req, res) => {
     recipientName: name,
     inviteLink,
     agencyName: req.user.agencyName || 'your agency',
-  }).catch(() => {});
+  }).catch((err) => logger.warn('[invite] Email delivery failed', { email, error: err.message }));
 
   res.status(201).json({
     success: true,
@@ -299,7 +301,7 @@ const resetPassword = asyncHandler(async (req, res) => {
   user.inviteTokenExpires = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
   await user.save();
 
-  const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+  const clientUrl = config.clientUrl;
   const resetLink = `${clientUrl}/set-password?token=${rawToken}`;
 
   res.status(200).json({

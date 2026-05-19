@@ -127,8 +127,10 @@ export const SocketProvider = ({ children }) => {
     };
   }, [isAuthenticated, loading]);
 
+  // Pass the ref itself so consumers always access the live socket via socketRef.current,
+  // rather than a snapshot captured at render time that goes stale after reconnects.
   return (
-    <SocketContext.Provider value={{ socket: socketRef.current }}>
+    <SocketContext.Provider value={{ socketRef }}>
       {children}
     </SocketContext.Provider>
   );

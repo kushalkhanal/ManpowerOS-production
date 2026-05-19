@@ -64,9 +64,33 @@ export const apiRateLimiter = rateLimit({
   skipSuccessfulRequests: true
 });
 
+/**
+ * Per-tenant OCR rate limiter — keyed by agencyId, not IP.
+ * Allows 30 passport scans per 10 minutes per agency.
+ * Authenticated routes only; falls back to IP if agencyId is missing.
+ */
+export const ocrRateLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: 30,
+  keyGenerator: (req) => {
+    const agencyId = req.user?.agencyId;
+    return agencyId
+      ? `ocr:${String(agencyId)}`
+      : req.ip;
+  },
+  message: {
+    success: false,
+    message: 'OCR scan limit reached (30 per 10 minutes per agency). Please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: false
+});
+
 export default {
   loginRateLimiter,
   passwordChangeRateLimiter,
   sensitiveOperationRateLimiter,
-  apiRateLimiter
+  apiRateLimiter,
+  ocrRateLimiter
 };

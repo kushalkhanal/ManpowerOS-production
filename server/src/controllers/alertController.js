@@ -28,16 +28,17 @@ const getAlertsData = async (agencyId) => {
     return d;
   };
 
-  const passport60Days = daysFromNow(60);
-  const medical15Days = daysFromNow(15);
-  const demand14Days = daysFromNow(14);
-  const swukriti14Days = daysFromNow(14);
+  const passport180Days = daysFromNow(180); // 6-month passport expiry window
+  const dofe60Days      = daysFromNow(60);  // 60-day DoFE license expiry window
+  const medical15Days   = daysFromNow(15);
+  const demand14Days    = daysFromNow(14);
+  const swukriti14Days  = daysFromNow(14);
   const insurance30Days = daysFromNow(30);
 
   try {
     const passportExpiring = await Passport.aggregate([
       {
-        $match: { agencyId, expiryDate: { $lte: passport60Days, $gte: today } },
+        $match: { agencyId, expiryDate: { $lte: passport180Days, $gte: today } },
       },
       {
         $lookup: {
@@ -64,6 +65,10 @@ const getAlertsData = async (agencyId) => {
       const daysLeft = Math.ceil(
         (new Date(p.expiryDate) - today) / (1000 * 60 * 60 * 24),
       );
+      const monthsLeft = Math.floor(daysLeft / 30);
+      const expiryLabel = daysLeft <= 30
+        ? `${daysLeft} day${daysLeft === 1 ? '' : 's'}`
+        : `~${monthsLeft} month${monthsLeft === 1 ? '' : 's'}`;
       alerts.push({
         alertId: generateAlertId(),
         type: "passport_expiring",
@@ -71,7 +76,7 @@ const getAlertsData = async (agencyId) => {
         candidateId: p.candidate._id,
         candidateName: p.candidate.fullName,
         candidatePhone: p.candidate.phone,
-        message: `Passport expires in ${daysLeft} days`,
+        message: `Passport expires in ${expiryLabel}`,
         actionUrl: `/candidates/${p.candidate._id}`,
         dueDate: p.expiryDate,
       });
@@ -393,7 +398,7 @@ const getAlertsData = async (agencyId) => {
         $match: {
           agencyId,
           category: "license",
-          expiryDate: { $lte: passport60Days, $gte: today },
+          expiryDate: { $lte: dofe60Days, $gte: today },
         },
       },
       { $project: { _id: 1, title: 1, expiryDate: 1, expiryAlertDays: 1 } },

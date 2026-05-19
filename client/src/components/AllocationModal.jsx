@@ -4,16 +4,7 @@ import { Search, X, AlertTriangle, CheckCircle, ChevronRight, Users } from 'luci
 import { passportPoolApi, sponsorsApi, candidatesApi } from '../api';
 import { showToast } from './ToastProvider';
 import { getCountryFlag, STATUS_LABELS, STATUS_COLORS } from '../domain/workflow/index';
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-const getInitials = (name) => {
-  if (!name) return '??';
-  const parts = name.trim().split(' ');
-  return parts.length >= 2
-    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-    : name.substring(0, 2).toUpperCase();
-};
+import { getInitials } from '../utils/format';
 
 const slotsLeft = (d) => (d.totalPositions || 0) - (d.filledPositions || 0);
 

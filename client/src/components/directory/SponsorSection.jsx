@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSponsors } from '../../hooks/useSponsors';
 import { debounce } from '../../utils/debounce';
 import { showToast } from '../ToastProvider';
@@ -6,12 +7,13 @@ import SponsorCard from './SponsorCard';
 import SponsorFormModal from './SponsorFormModal';
 import SponsorProfileDrawer from './SponsorProfileDrawer';
 import { ConfirmDialog } from '../ui';
+import { NEPAL_DISTRICTS } from '../../utils/constants';
 
 const SponsorSection = () => {
+  const navigate = useNavigate();
   const { sponsors, loading, getSponsors, toggleSponsorActive, deleteSponsor } = useSponsors();
   const [search, setSearch] = useState('');
   const [districtFilter, setDistrictFilter] = useState('');
-  const [availableDistricts, setAvailableDistricts] = useState([]);
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingSponsor, setEditingSponsor] = useState(null);
   const [showProfileDrawer, setShowProfileDrawer] = useState(false);
@@ -22,14 +24,6 @@ const SponsorSection = () => {
   useEffect(() => {
     getSponsors();
   }, []);
-
-  useEffect(() => {
-    const districts = new Set();
-    sponsors.forEach(s => {
-      s.coverageDistricts?.forEach(d => districts.add(d));
-    });
-    setAvailableDistricts(Array.from(districts).sort());
-  }, [sponsors]);
 
   const debouncedSearch = useCallback(
     debounce((value) => {
@@ -61,8 +55,7 @@ const SponsorSection = () => {
   };
 
   const handleViewCandidates = (sponsor) => {
-    setSelectedSponsorId(sponsor._id);
-    setShowProfileDrawer(true);
+    navigate(`/candidates?agentId=${sponsor._id}`);
   };
 
   const handleDeactivate = async () => {
@@ -121,13 +114,13 @@ const SponsorSection = () => {
           className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
         >
           <option value="">All Districts</option>
-          {availableDistricts.map(d => (
+          {NEPAL_DISTRICTS.map(d => (
             <option key={d} value={d}>{d}</option>
           ))}
         </select>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1">
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <div className="text-gray-500">Loading...</div>

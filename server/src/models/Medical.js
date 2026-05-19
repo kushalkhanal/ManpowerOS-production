@@ -62,6 +62,7 @@ const medicalSchema = new mongoose.Schema({
 medicalSchema.index({ agencyId: 1, candidateId: 1 });
 medicalSchema.index({ agencyId: 1, result: 1 });
 medicalSchema.index({ agencyId: 1, reportExpiryDate: 1 });
+medicalSchema.index({ agencyId: 1, conductedDate: -1 }); // timeline queries
 
 medicalSchema.virtual('scheduledDateBS').get(function() {
   return this.scheduledDate ? formatBSDisplay(this.scheduledDate) : null;

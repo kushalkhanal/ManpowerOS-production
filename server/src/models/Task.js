@@ -87,6 +87,7 @@ const taskSchema = new mongoose.Schema({
 
 taskSchema.index({ agencyId: 1, status: 1 });
 taskSchema.index({ agencyId: 1, assignedTo: 1 });
+taskSchema.index({ agencyId: 1, candidateId: 1 }); // per-candidate task lookups
 taskSchema.index({ agencyId: 1, dueDate: 1 });
 taskSchema.index({ agencyId: 1, priority: 1 });
 

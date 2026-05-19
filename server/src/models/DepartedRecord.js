@@ -78,13 +78,31 @@ const departedRecordSchema = new mongoose.Schema(
     },
 
     departedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+
+    // Archive tiering — records older than 1 year are marked archived
+    // so hot queries can use a partial index and skip cold data
+    isArchived: { type: Boolean, default: false, index: true },
+    archivedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
 
-departedRecordSchema.index({ agencyId: 1, departedAt: -1 });
-departedRecordSchema.index({ agencyId: 1, employerCountry: 1, departedAt: -1 });
-departedRecordSchema.index({ agencyId: 1, returnStatus: 1 });
+// Hot queries — partial index skips archived docs so scans stay fast
+departedRecordSchema.index(
+  { agencyId: 1, departedAt: -1 },
+  { partialFilterExpression: { isArchived: false } }
+);
+departedRecordSchema.index(
+  { agencyId: 1, employerCountry: 1, departedAt: -1 },
+  { partialFilterExpression: { isArchived: false } }
+);
+departedRecordSchema.index(
+  { agencyId: 1, returnStatus: 1 },
+  { partialFilterExpression: { isArchived: false } }
+);
+// Archive queries (old records)
+departedRecordSchema.index({ agencyId: 1, isArchived: 1, departedAt: -1 });
+departedRecordSchema.index({ agencyId: 1, originalCandidateId: 1 }); // archive lookups by source candidate
 departedRecordSchema.index({
   fullName: "text",
   passportNumber: "text",

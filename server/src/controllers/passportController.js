@@ -16,6 +16,7 @@ import {
   getPublicIdFromUrl,
 } from "../middleware/upload.js";
 import logger from "../config/logger.js";
+import { config } from "../config/env.js";
 
 const cleanupCloudinaryAssets = (urls) => {
   if (!urls || urls.length === 0) return;
@@ -572,7 +573,7 @@ const scanPassport = asyncHandler(async (req, res) => {
     scannedImageUrl = req.file.path;
   } else if (req.file.path) {
     const safeFilename = sanitizeFilename(path.basename(req.file.path));
-    scannedImageUrl = `${process.env.API_BASE_URL || "http://localhost:5000"}/uploads/passports/scans/${safeFilename}`;
+    scannedImageUrl = `${config.apiBaseUrl}/uploads/passports/scans/${safeFilename}`;
   }
 
   const formatDateDisplay = (date) => {

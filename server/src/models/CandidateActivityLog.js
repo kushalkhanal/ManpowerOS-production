@@ -49,6 +49,7 @@ const candidateActivityLogSchema = new mongoose.Schema({
   timestamps: true
 });
 
+candidateActivityLogSchema.index({ agencyId: 1, candidateId: 1, timestamp: -1 }); // primary access pattern
 candidateActivityLogSchema.index({ candidateId: 1, timestamp: -1 });
 candidateActivityLogSchema.index({ agencyId: 1, timestamp: -1 });
 candidateActivityLogSchema.index({ performedBy: 1, timestamp: -1 });

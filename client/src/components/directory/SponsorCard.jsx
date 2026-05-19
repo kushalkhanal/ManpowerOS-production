@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Phone, MapPin, MoreVertical } from 'lucide-react';
 import SponsorThreeDotMenu from './SponsorThreeDotMenu';
+import { getAvatarColor, getInitials, formatRelativeDate } from '../../utils/format';
 
 const AGENT_STATUS_STYLE = {
   active:      'bg-emerald-100 text-emerald-700',
@@ -8,27 +9,9 @@ const AGENT_STATUS_STYLE = {
   blacklisted: 'bg-red-100 text-red-700',
 };
 
-const getAvatarColor = (name) => {
-  const colors = ['bg-primary', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500', 'bg-pink-500', 'bg-teal-500', 'bg-orange-500'];
-  const hash = name?.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) || 0;
-  return colors[hash % colors.length];
-};
-
-const getInitials = (name) => {
-  if (!name) return '??';
-  const parts = name.trim().split(' ');
-  return parts.length >= 2
-    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-    : name.substring(0, 2).toUpperCase();
-};
-
 const formatLastReferral = (date) => {
-  if (!date) return null;
-  const days = Math.floor((Date.now() - new Date(date)) / 86400000);
-  if (days === 0) return 'Today';
-  if (days === 1) return 'Yesterday';
-  if (days < 30) return `${days}d ago`;
-  return `${Math.floor(days / 30)}mo ago`;
+  const label = formatRelativeDate(date);
+  return label === 'Never' ? null : label;
 };
 
 const SponsorCard = ({ sponsor, onViewProfile, onEdit, onViewCandidates, onDeactivate, onDelete }) => {

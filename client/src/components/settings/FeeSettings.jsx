@@ -1,9 +1,9 @@
 import { useReducer, useEffect } from 'react';
-import { showToast } from '../components/ToastProvider';
+import { showToast } from '../ToastProvider';
 import { Save } from 'lucide-react';
-import { formReducer, createFormState, formActions } from '../hooks/useFormReducer';
-import { useAgencySettings, useUpdateAgencySettings } from '../hooks/queries';
-import { DESIRED_COUNTRIES } from '../utils/constants';
+import { formReducer, createFormState, formActions } from '../../hooks/useFormReducer';
+import { useAgencySettings, useUpdateAgencySettings } from '../../hooks/queries';
+import { DESIRED_COUNTRIES } from '../../utils/constants';
 
 const FeeSettings = () => {
   const { data: settings, isLoading: loading } = useAgencySettings();

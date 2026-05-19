@@ -9,6 +9,7 @@ import Task from "../models/Task.js";
 import DepartedRecord from "../models/DepartedRecord.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { scopeFilter } from "../utils/tenantHelper.js";
+import { archiveOldDepartedRecords, getArchiveStats } from "../services/archiveService.js";
 
 // Build a frozen snapshot combining candidate + passport + demand data
 const buildSnapshot = (candidate, passport, demand) => ({
@@ -138,7 +139,8 @@ export const markCandidateDeparted = asyncHandler(async (req, res) => {
 export const getDepartedRecords = asyncHandler(async (req, res) => {
   const { search, country, returnStatus, year, page = 1 } = req.query;
   const PAGE_SIZE = 25;
-  const filter = { agencyId: req.user.agencyId };
+  const showArchived = req.query.archived === 'true';
+  const filter = { agencyId: req.user.agencyId, isArchived: showArchived };
 
   if (search) {
     filter.$text = { $search: search };
@@ -200,6 +202,18 @@ export const getDepartedStats = asyncHandler(async (req, res) => {
     absconded: statusMap.absconded || 0,
     byCountry,
   });
+});
+
+// POST /departed/archive — move records older than 1 year to archived state
+export const triggerArchive = asyncHandler(async (req, res) => {
+  const count = await archiveOldDepartedRecords(req.user.agencyId);
+  res.json({ message: `Archived ${count} records older than 1 year`, count });
+});
+
+// GET /departed/archive-stats
+export const getArchiveStatsHandler = asyncHandler(async (req, res) => {
+  const stats = await getArchiveStats(req.user.agencyId);
+  res.json(stats);
 });
 
 // GET /departed/:id

@@ -9,6 +9,7 @@ import EditCandidateSectionModal from '../components/EditCandidateSectionModal';
 import SharedDocumentsPanel from '../components/SharedDocumentsPanel';
 import { ArrowLeft, Pencil, Settings2, FileText, Loader2 } from 'lucide-react';
 import { showToast } from '../components/ToastProvider';
+import { fmtDate, fmtDateTime, daysUntil } from '../utils/format';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -32,21 +33,6 @@ const ACTION_LABELS = {
   edited:         'Edited',
   deleted:        'Deleted',
 };
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const fmtDate = (d) => d
-  ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-  : '—';
-
-const fmtDateTime = (d) => d
-  ? new Date(d).toLocaleString('en-GB', {
-      day: '2-digit', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    })
-  : '—';
-
-const daysUntil = (d) => d ? Math.ceil((new Date(d) - Date.now()) / 86400000) : null;
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 

@@ -23,10 +23,7 @@ const Documents = () => {
 
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
 
-  useEffect(() => {
-    getDocuments();
-  }, []);
-
+  // Single effect handles both initial load and filter changes — avoids double fetch on mount
   useEffect(() => {
     const params = {};
     if (selectedCategory) params.category = selectedCategory;

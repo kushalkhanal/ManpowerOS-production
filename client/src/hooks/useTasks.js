@@ -32,9 +32,10 @@ export function useTasks() {
       return response.data;
     } catch (err) {
       devError('Failed to fetch task stats:', err);
-      return stats;
+      // Return current stats via functional ref — no dep needed
+      return null;
     }
-  }, [stats]);
+  }, []);
 
   const createTask = useCallback((data) =>
     execute(async () => {

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { demandsApi } from '../../api';
+import { jobDemandApi } from '../../api';
 
 export const demandKeys = {
   all: ['demands'],
@@ -15,7 +15,7 @@ export const useDemands = (params = {}) => {
   return useQuery({
     queryKey: demandKeys.list(params),
     queryFn: async () => {
-      const response = await demandsApi.getAll(params);
+      const response = await jobDemandApi.getAll(params);
       return response.data;
     },
     staleTime: 2 * 60 * 1000,
@@ -27,7 +27,7 @@ export const useDemandDetail = (id) => {
   return useQuery({
     queryKey: demandKeys.detail(id),
     queryFn: async () => {
-      const response = await demandsApi.getById(id);
+      const response = await jobDemandApi.getById(id);
       return response.data;
     },
     enabled: !!id,
@@ -38,7 +38,7 @@ export const useExpiringDemands = () => {
   return useQuery({
     queryKey: demandKeys.expiring(),
     queryFn: async () => {
-      const response = await demandsApi.getExpiring();
+      const response = await jobDemandApi.getExpiring();
       return response.data;
     },
     staleTime: 5 * 60 * 1000,
@@ -49,7 +49,7 @@ export const useEligibleCandidates = (demandId) => {
   return useQuery({
     queryKey: demandKeys.eligible(demandId),
     queryFn: async () => {
-      const response = await demandsApi.getEligibleCandidates(demandId);
+      const response = await jobDemandApi.getEligibleCandidates(demandId);
       return response.data;
     },
     enabled: !!demandId,
@@ -59,7 +59,7 @@ export const useEligibleCandidates = (demandId) => {
 export const useCreateDemand = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data) => demandsApi.create(data),
+    mutationFn: (data) => jobDemandApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: demandKeys.lists() });
     },
@@ -69,7 +69,7 @@ export const useCreateDemand = () => {
 export const useUpdateDemand = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }) => demandsApi.update(id, data),
+    mutationFn: ({ id, data }) => jobDemandApi.update(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: demandKeys.lists() });
       queryClient.invalidateQueries({ queryKey: demandKeys.detail(variables.id) });
@@ -80,7 +80,7 @@ export const useUpdateDemand = () => {
 export const useDeleteDemand = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id) => demandsApi.delete(id),
+    mutationFn: (id) => jobDemandApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: demandKeys.lists() });
     },
@@ -90,7 +90,7 @@ export const useDeleteDemand = () => {
 export const useAssignCandidate = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ demandId, candidateId }) => demandsApi.assignCandidate(demandId, candidateId),
+    mutationFn: ({ demandId, candidateId }) => jobDemandApi.assignCandidate(demandId, candidateId),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: demandKeys.detail(variables.demandId) });
     },
@@ -100,7 +100,7 @@ export const useAssignCandidate = () => {
 export const useRemoveCandidate = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ demandId, candidateId }) => demandsApi.removeCandidate(demandId, candidateId),
+    mutationFn: ({ demandId, candidateId }) => jobDemandApi.removeCandidate(demandId, candidateId),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: demandKeys.detail(variables.demandId) });
     },

@@ -158,7 +158,7 @@ export const createAdminForAgency = asyncHandler(async (req, res) => {
     permissions: getDefaultPermissions('admin')
   });
 
-  const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+  const clientUrl = config.clientUrl;
   const inviteLink = `${clientUrl}/set-password?token=${rawToken}`;
 
   return apiResponse.success(res, {

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { alertsApi } from '../../api';
+import { alertApi } from '../../api';
 
 export const alertKeys = {
   all: ['alerts'],
@@ -11,7 +11,7 @@ export const useAlertsQuery = () => {
   return useQuery({
     queryKey: alertKeys.list(),
     queryFn: async () => {
-      const response = await alertsApi.getAll();
+      const response = await alertApi.getAll();
       return response.data;
     },
     staleTime: 30 * 1000,
@@ -23,7 +23,7 @@ export const useAlertCounts = () => {
   return useQuery({
     queryKey: alertKeys.counts(),
     queryFn: async () => {
-      const response = await alertsApi.getCounts();
+      const response = await alertApi.getCounts();
       return response.data;
     },
     staleTime: 30 * 1000,
@@ -34,7 +34,7 @@ export const useAlertCounts = () => {
 export const useCreateAlert = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data) => alertsApi.create(data),
+    mutationFn: (data) => alertApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: alertKeys.all });
     },
@@ -44,7 +44,7 @@ export const useCreateAlert = () => {
 export const useDeleteAlert = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id) => alertsApi.deleteManual(id),
+    mutationFn: (id) => alertApi.deleteManual(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: alertKeys.all });
     },

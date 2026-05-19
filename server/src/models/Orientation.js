@@ -63,6 +63,7 @@ const orientationSchema = new mongoose.Schema({
 
 orientationSchema.index({ agencyId: 1, candidateId: 1 });
 orientationSchema.index({ agencyId: 1, completionStatus: 1 });
+orientationSchema.index({ agencyId: 1, startDate: 1 }); // batch/schedule queries
 
 orientationSchema.virtual('startDateBS').get(function() {
   return this.startDate ? formatBSDisplay(this.startDate) : null;
