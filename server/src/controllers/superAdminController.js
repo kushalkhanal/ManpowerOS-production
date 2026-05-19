@@ -123,10 +123,10 @@ export const deleteAgency = asyncHandler(async (req, res) => {
  */
 export const createAdminForAgency = asyncHandler(async (req, res) => {
   const { id } = req.params; // agency id
-  const { name, email, phone } = req.body;
+  const { name, email, phone, password } = req.body;
 
-  if (!name || !email) {
-    return apiResponse.error(res, 'Name and email are required');
+  if (!name || !email || !password) {
+    return apiResponse.error(res, 'Name, email and password are required');
   }
 
   const agency = await Agency.findById(id);
@@ -140,30 +140,21 @@ export const createAdminForAgency = asyncHandler(async (req, res) => {
     return apiResponse.error(res, 'A user with this email already exists in this agency');
   }
 
-  const rawToken = crypto.randomBytes(32).toString('hex');
-  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-  const placeholderHash = crypto.randomBytes(32).toString('hex');
-
+  // passwordHash gets auto-hashed by the User pre-save hook
   const admin = await User.create({
     agencyId: id,
     name,
     email: email.toLowerCase(),
-    passwordHash: placeholderHash,
+    passwordHash: password,
     role: 'admin',
     phone: phone || undefined,
-    isActive: false,
+    isActive: true,
     mustChangePassword: true,
-    inviteToken: tokenHash,
-    inviteTokenExpires: new Date(Date.now() + 48 * 60 * 60 * 1000),
     permissions: getDefaultPermissions('admin')
   });
 
-  const clientUrl = config.clientUrl;
-  const inviteLink = `${clientUrl}/set-password?token=${rawToken}`;
-
   return apiResponse.success(res, {
-    user: admin.toJSON(),
-    inviteLink
+    user: admin.toJSON()
   }, `Admin account created for ${agency.name}`);
 });
 

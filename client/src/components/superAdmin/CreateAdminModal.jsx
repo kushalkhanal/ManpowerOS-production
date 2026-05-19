@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Shield, X, CheckCircle, Copy, UserPlus } from 'lucide-react';
+import { Shield, X, CheckCircle, Copy, UserPlus, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import superAdminApi from '../../api/superAdmin.api';
 
 const CreateAdminModal = ({ agency, onClose, onSuccess }) => {
-  const [form, setForm] = useState({ name: '', email: '', phone: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e) => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
@@ -18,11 +19,19 @@ const CreateAdminModal = ({ agency, onClose, onSuccess }) => {
       toast.error('Name and email are required');
       return;
     }
+    if (!form.password || form.password.length < 8) {
+      toast.error('Password must be at least 8 characters');
+      return;
+    }
     setLoading(true);
     try {
       const res = await superAdminApi.createAdminForAgency(agency._id, form);
       const data = res.data?.data || res.data;
-      setResult({ inviteLink: data.inviteLink, adminName: data.user?.name });
+      setResult({
+        adminName: data.user?.name,
+        email: form.email,
+        password: form.password
+      });
       toast.success('Admin account created successfully');
       onSuccess?.();
     } catch (err) {
@@ -33,11 +42,11 @@ const CreateAdminModal = ({ agency, onClose, onSuccess }) => {
   };
 
   const handleCopy = () => {
-    if (result?.inviteLink) {
-      navigator.clipboard.writeText(result.inviteLink);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+    if (!result) return;
+    const text = `Email: ${result.email}\nTemporary password: ${result.password}`;
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return createPortal(
@@ -72,20 +81,31 @@ const CreateAdminModal = ({ agency, onClose, onSuccess }) => {
               </div>
 
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-4">
-                <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-2">
-                  Invite Link — valid for 48 hours
-                </p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 font-mono text-xs text-gray-700 bg-white border border-emerald-200 rounded-lg px-3 py-2 overflow-hidden text-ellipsis whitespace-nowrap">
-                    {result.inviteLink}
-                  </code>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider">
+                    Login Credentials
+                  </p>
                   <button onClick={handleCopy}
-                    className="p-2 hover:bg-emerald-100 rounded-lg transition-colors text-emerald-600 flex-shrink-0">
-                    {copied ? <CheckCircle size={16} className="text-green-500" /> : <Copy size={16} />}
+                    className="flex items-center gap-1 text-xs px-2 py-1 hover:bg-emerald-100 rounded-lg transition-colors text-emerald-700">
+                    {copied ? <><CheckCircle size={12} className="text-green-500" /> Copied</> : <><Copy size={12} /> Copy</>}
                   </button>
                 </div>
-                <p className="text-xs text-emerald-700 mt-2">
-                  Account activates on first login via this link.
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-[10px] font-medium text-gray-500 uppercase">Email</p>
+                    <code className="block font-mono text-xs text-gray-800 bg-white border border-emerald-200 rounded-lg px-3 py-2">
+                      {result.email}
+                    </code>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-gray-500 uppercase">Temporary Password</p>
+                    <code className="block font-mono text-xs text-gray-800 bg-white border border-emerald-200 rounded-lg px-3 py-2">
+                      {result.password}
+                    </code>
+                  </div>
+                </div>
+                <p className="text-xs text-emerald-700 mt-3">
+                  Share these with the admin. They will be prompted to change the password on first login.
                 </p>
               </div>
 
@@ -117,7 +137,32 @@ const CreateAdminModal = ({ agency, onClose, onSuccess }) => {
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm" />
               </div>
 
-              <p className="text-xs text-gray-400">A secure invite link will be generated. The admin sets their own password via the link.</p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Temporary Password *</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    value={form.password}
+                    onChange={handleChange}
+                    placeholder="At least 8 characters"
+                    minLength={8}
+                    autoComplete="new-password"
+                    className="w-full pr-10 px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(s => !s)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <p className="text-xs text-gray-400">Admin will be required to change this password on first login.</p>
 
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={onClose}

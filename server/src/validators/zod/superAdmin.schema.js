@@ -9,7 +9,11 @@ export const superAdminAgencyStatusSchema = z.object({
 export const superAdminCreateAdminSchema = z.object({
   name: z.string().trim().min(3, "Name must be at least 3 characters").max(100),
   email: z.string().email("Invalid email address"),
-  phone: z.string().trim().optional().nullable()
+  phone: z.string().trim().optional().nullable(),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(128, "Password is too long")
 });
 
 export const superAdminAgencyPlanSchema = z.object({

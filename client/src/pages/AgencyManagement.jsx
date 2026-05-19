@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Building2, Search, MoreVertical, Power, CheckCircle, XCircle,
-  Trash2, ArrowUpRight, ShieldCheck, UserPlus, CreditCard, Calendar, Plus,
+  Trash2, ArrowUpRight, ShieldCheck, UserPlus, CreditCard, Calendar, Plus, Users,
 } from 'lucide-react';
 import superAdminApi from '../api/superAdmin.api';
 import toast from 'react-hot-toast';
@@ -11,8 +11,9 @@ import { useNavigate } from 'react-router-dom';
 import CreateAdminModal from '../components/superAdmin/CreateAdminModal';
 import NewAgencyModal   from '../components/superAdmin/NewAgencyModal';
 import EditPlanModal    from '../components/superAdmin/EditPlanModal';
+import ManageAdminsModal from '../components/superAdmin/ManageAdminsModal';
 
-const ActionMenu = ({ agency, onToggleStatus, onDelete, onImpersonate, onCreateAdmin, onUpdatePlan }) => {
+const ActionMenu = ({ agency, onToggleStatus, onDelete, onImpersonate, onCreateAdmin, onManageAdmins, onUpdatePlan }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const buttonRef = useRef(null);
@@ -70,6 +71,10 @@ const ActionMenu = ({ agency, onToggleStatus, onDelete, onImpersonate, onCreateA
         className="w-full flex items-center gap-2 px-4 py-2 text-sm text-indigo-600 hover:bg-indigo-50 transition-colors font-medium">
         <UserPlus size={14} /> Create Admin Account
       </button>
+      <button onClick={() => close(onManageAdmins, agency)}
+        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-indigo-600 hover:bg-indigo-50 transition-colors font-medium">
+        <Users size={14} /> Manage Admins
+      </button>
       <button onClick={() => close(onUpdatePlan, agency)}
         className="w-full flex items-center gap-2 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50 transition-colors font-medium">
         <CreditCard size={14} /> Update Plan & Usage
@@ -112,6 +117,7 @@ const AgencyManagement = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [createAdminTarget, setCreateAdminTarget] = useState(null);
+  const [manageAdminsTarget, setManageAdminsTarget] = useState(null);
   const [editPlanTarget, setEditPlanTarget] = useState(null);
   const [showNewAgency, setShowNewAgency] = useState(false);
 
@@ -280,6 +286,7 @@ const AgencyManagement = () => {
                       onDelete={handleDelete}
                       onImpersonate={handleImpersonate}
                       onCreateAdmin={setCreateAdminTarget}
+                      onManageAdmins={setManageAdminsTarget}
                       onUpdatePlan={setEditPlanTarget}
                     />
                   </td>
@@ -292,6 +299,9 @@ const AgencyManagement = () => {
 
       {createAdminTarget && (
         <CreateAdminModal agency={createAdminTarget} onClose={() => setCreateAdminTarget(null)} onSuccess={fetchAgencies} />
+      )}
+      {manageAdminsTarget && (
+        <ManageAdminsModal agency={manageAdminsTarget} onClose={() => { setManageAdminsTarget(null); fetchAgencies(); }} />
       )}
       {showNewAgency && (
         <NewAgencyModal onClose={() => setShowNewAgency(false)} onSuccess={fetchAgencies} />
