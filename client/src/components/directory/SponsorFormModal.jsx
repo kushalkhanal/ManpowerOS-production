@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { Camera } from 'lucide-react';
 import { useSponsors } from '../../hooks/useSponsors';
 import { staffApi } from '../../api';
 import { NEPAL_PROVINCES, NEPAL_DISTRICTS, NEPAL_DISTRICTS_BY_PROVINCE } from '../../utils/constants';
@@ -11,6 +12,10 @@ const SponsorFormModal = ({ isOpen, onClose, onSuccess, sponsor = null }) => {
   const [staffList, setStaffList] = useState([]);
   const [searchStaff, setSearchStaff] = useState('');
   const [showStaffDropdown, setShowStaffDropdown] = useState(false);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [districtSearch, setDistrictSearch] = useState('');
+  const photoInputRef = useRef(null);
 
   const ROLE_DEFAULT_PERMISSIONS = {
     agent:        ['canViewOwnCandidates'],
@@ -46,6 +51,9 @@ const SponsorFormModal = ({ isOpen, onClose, onSuccess, sponsor = null }) => {
   useEffect(() => {
     if (isOpen) {
       loadStaff();
+      setPhotoFile(null);
+      setPhotoPreview(sponsor?.photo || null);
+      setDistrictSearch('');
       if (sponsor) {
         setFormData({
           fullName: sponsor.fullName || '',
@@ -107,6 +115,13 @@ const SponsorFormModal = ({ isOpen, onClose, onSuccess, sponsor = null }) => {
     } catch (err) {
       console.error('Failed to load staff:', err);
     }
+  };
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
   };
 
   const handleChange = (e) => {
@@ -172,14 +187,25 @@ const SponsorFormModal = ({ isOpen, onClose, onSuccess, sponsor = null }) => {
         return value.trim();
       };
 
-      const submitData = {
+      const base = {
         ...formData,
-        // Keep primary phone strictly numeric for server-side Nepal number validation.
         phone: formData.phone.replace(/[\s\-()]/g, '').trim(),
         alternatePhone: normalizeOptionalPhone(formData.alternatePhone),
         sponsorContactNumber: normalizeOptionalPhone(formData.sponsorContactNumber),
-        assignedStaffId: formData.assignedStaffId || undefined
+        assignedStaffId: formData.assignedStaffId || undefined,
       };
+
+      let submitData;
+      if (photoFile) {
+        submitData = new FormData();
+        Object.entries(base).forEach(([k, v]) => {
+          if (Array.isArray(v)) submitData.append(k, JSON.stringify(v));
+          else if (v !== undefined && v !== '') submitData.append(k, v);
+        });
+        submitData.append('photo', photoFile);
+      } else {
+        submitData = base;
+      }
 
       if (sponsor) {
         await updateSponsor(sponsor._id, submitData);
@@ -233,7 +259,7 @@ const SponsorFormModal = ({ isOpen, onClose, onSuccess, sponsor = null }) => {
             <div className="sm:flex sm:items-start">
               <div className="w-full">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">
-                  {sponsor ? 'Edit Sponsor' : 'Add New Sponsor'}
+                  {sponsor ? 'Edit Agent' : 'Add New Agent'}
                 </h3>
 
                 
@@ -246,6 +272,32 @@ const SponsorFormModal = ({ isOpen, onClose, onSuccess, sponsor = null }) => {
 
                 {step === 1 && (
                   <div className="space-y-3">
+                    {/* Profile photo */}
+                    <div className="flex items-center gap-4 mb-1">
+                      <div
+                        onClick={() => photoInputRef.current?.click()}
+                        className="relative w-16 h-16 rounded-full overflow-hidden bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-primary-400 transition-colors flex-shrink-0"
+                      >
+                        {photoPreview ? (
+                          <img src={photoPreview} alt="Agent" className="w-full h-full object-cover" />
+                        ) : (
+                          <Camera size={20} className="text-gray-400" />
+                        )}
+                      </div>
+                      <div>
+                        <button type="button" onClick={() => photoInputRef.current?.click()} className="text-sm font-medium text-primary-600 hover:text-primary-700">
+                          {photoPreview ? 'Change photo' : 'Upload photo'}
+                        </button>
+                        {photoPreview && (
+                          <button type="button" onClick={() => { setPhotoFile(null); setPhotoPreview(null); }} className="ml-3 text-sm text-gray-400 hover:text-red-500">
+                            Remove
+                          </button>
+                        )}
+                        <p className="text-xs text-gray-400 mt-0.5">JPG, PNG or WEBP · max 5MB</p>
+                      </div>
+                      <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoChange} />
+                    </div>
+
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-sm font-medium text-gray-700">Full Name *</label>
@@ -454,6 +506,54 @@ const SponsorFormModal = ({ isOpen, onClose, onSuccess, sponsor = null }) => {
                       </div>
                     )}
 
+                    {/* Coverage Districts */}
+                    <div className="mt-3 pt-3 border-t">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Coverage Districts
+                        {formData.coverageDistricts.length > 0 && (
+                          <span className="ml-2 text-xs font-normal text-primary-600">{formData.coverageDistricts.length} selected</span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Search districts…"
+                        value={districtSearch}
+                        onChange={(e) => setDistrictSearch(e.target.value)}
+                        className="mb-2 block w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                      />
+                      <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1">
+                        {NEPAL_DISTRICTS
+                          .filter(d => !districtSearch || d.toLowerCase().includes(districtSearch.toLowerCase()))
+                          .map(d => {
+                            const selected = formData.coverageDistricts.includes(d);
+                            return (
+                              <button
+                                key={d}
+                                type="button"
+                                onClick={() => setFormData(prev => ({
+                                  ...prev,
+                                  coverageDistricts: selected
+                                    ? prev.coverageDistricts.filter(x => x !== d)
+                                    : [...prev.coverageDistricts, d]
+                                }))}
+                                className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${
+                                  selected
+                                    ? 'bg-primary-600 text-white border-primary-600'
+                                    : 'bg-white text-gray-600 border-gray-300 hover:border-primary-400'
+                                }`}
+                              >
+                                {d}
+                              </button>
+                            );
+                          })}
+                      </div>
+                      {formData.coverageDistricts.length > 0 && (
+                        <button type="button" onClick={() => setFormData(prev => ({ ...prev, coverageDistricts: [] }))} className="mt-1 text-xs text-gray-400 hover:text-red-500">
+                          Clear all
+                        </button>
+                      )}
+                    </div>
+
                     <div className="mt-3">
                       <label className="block text-sm font-medium text-gray-700">Notes</label>
                       <textarea
@@ -476,7 +576,7 @@ const SponsorFormModal = ({ isOpen, onClose, onSuccess, sponsor = null }) => {
               disabled={loading}
               className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
             >
-              {loading ? 'Saving...' : sponsor ? 'Update' : 'Add Sponsor'}
+              {loading ? 'Saving...' : sponsor ? 'Update Agent' : 'Add Agent'}
             </button>
             <button
               onClick={onClose}
