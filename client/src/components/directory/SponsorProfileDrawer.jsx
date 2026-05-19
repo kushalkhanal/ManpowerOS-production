@@ -1,36 +1,48 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { X, Phone, MapPin, Users, PlaneTakeoff, TrendingUp, Clock } from 'lucide-react';
 import { sponsorsApi } from '../../api';
 import { STATUS_COLORS, STATUS_LABELS, COUNTRY_FLAGS } from '../../utils/constants';
 
+const AGENT_STATUS = [
+  { value: 'active',      label: 'Active',      cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+  { value: 'passive',     label: 'Passive',     cls: 'bg-amber-100 text-amber-800 border-amber-200' },
+  { value: 'blacklisted', label: 'Blacklisted', cls: 'bg-red-100 text-red-800 border-red-200' },
+];
+
 const getAvatarColor = (name) => {
-  const colors = [
-    'bg-primary-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500',
-    'bg-pink-500', 'bg-primary-500', 'bg-red-500', 'bg-teal-500', 'bg-orange-500'
-  ];
-  const hash = name?.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) || 0;
+  const colors = ['bg-primary', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500', 'bg-pink-500', 'bg-teal-500', 'bg-orange-500'];
+  const hash = name?.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) || 0;
   return colors[hash % colors.length];
 };
 
 const getInitials = (name) => {
   if (!name) return '??';
-  const parts = name.split(' ');
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  }
-  return name.substring(0, 2).toUpperCase();
+  const parts = name.trim().split(' ');
+  return parts.length >= 2
+    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    : name.substring(0, 2).toUpperCase();
 };
 
-const SponsorProfileDrawer = ({ sponsorId, isOpen, onClose, onEdit }) => {
+const formatLastReferral = (date) => {
+  if (!date) return 'Never';
+  const days = Math.floor((Date.now() - new Date(date)) / 86400000);
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  return `${months}mo ago`;
+};
+
+const SponsorProfileDrawer = ({ sponsorId, isOpen, onClose, onEdit, onStatusChange }) => {
   const [sponsor, setSponsor] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notes, setNotes] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   useEffect(() => {
-    if (isOpen && sponsorId) {
-      loadSponsor();
-    }
+    if (isOpen && sponsorId) loadSponsor();
   }, [isOpen, sponsorId]);
 
   const loadSponsor = async () => {
@@ -40,7 +52,7 @@ const SponsorProfileDrawer = ({ sponsorId, isOpen, onClose, onEdit }) => {
       setSponsor(response.data);
       setNotes(response.data.notes || '');
     } catch (err) {
-      console.error('Failed to load sponsor:', err);
+      console.error('Failed to load agent:', err);
     } finally {
       setLoading(false);
     }
@@ -51,176 +63,210 @@ const SponsorProfileDrawer = ({ sponsorId, isOpen, onClose, onEdit }) => {
     try {
       await sponsorsApi.update(sponsorId, { notes });
       setSponsor(prev => ({ ...prev, notes }));
-    } catch (err) {
-      console.error('Failed to save notes:', err);
     } finally {
       setSavingNotes(false);
     }
   };
 
-  const getDepartureRate = () => {
-    if (!sponsor?.candidatesReferred) return 0;
-    return Math.round((sponsor.candidatesDeparted / sponsor.candidatesReferred) * 100);
-  };
-
-  const getRateColor = (rate) => {
-    if (rate >= 80) return 'text-green-600';
-    if (rate >= 50) return 'text-amber-600';
-    return 'text-red-600';
+  const handleStatusChange = async (newStatus) => {
+    if (updatingStatus || sponsor?.agentStatus === newStatus) return;
+    setUpdatingStatus(true);
+    try {
+      await sponsorsApi.update(sponsorId, { agentStatus: newStatus });
+      setSponsor(prev => ({ ...prev, agentStatus: newStatus }));
+      onStatusChange?.(sponsorId, newStatus);
+    } catch (err) {
+      console.error('Failed to update status:', err);
+    } finally {
+      setUpdatingStatus(false);
+    }
   };
 
   if (!isOpen) return null;
 
-  const departureRate = getDepartureRate();
+  const totalReferred  = sponsor?.candidatesReferred || 0;
+  const totalDeparted  = sponsor?.candidatesDeparted || 0;
+  const totalActive    = sponsor?.candidatesActive   ?? (sponsor?.totalActive ?? 0);
+  const successRate    = totalReferred > 0 ? Math.round((totalDeparted / totalReferred) * 100) : 0;
+  const lastReferral   = sponsor?.lastReferralDate;
+  const currentStatus  = sponsor?.agentStatus || 'active';
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
-      <div className="absolute inset-0 bg-gray-500 bg-opacity-75" onClick={onClose} />
-      
-      <div className="absolute inset-y-0 right-0 max-w-md w-full bg-white shadow-xl flex flex-col">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+
+      <div className="absolute inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl flex flex-col">
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-gray-900">Agent Profile</h2>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
         {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-gray-500">Loading...</div>
-          </div>
-        ) : sponsor ? (
+          <div className="flex-1 flex items-center justify-center text-gray-400">Loading...</div>
+        ) : !sponsor ? (
+          <div className="flex-1 flex items-center justify-center text-gray-400">Agent not found</div>
+        ) : (
           <>
-            <div className="px-4 py-3 border-b flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Sponsor Profile</h2>
-              <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4">
-              <div className="flex items-center gap-3 mb-4">
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold ${getAvatarColor(sponsor.fullName)}`}>
-                  {getInitials(sponsor.fullName)}
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900">{sponsor.fullName}</h3>
-                  <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${
-                    sponsor.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {sponsor.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-              </div>
-
-              {sponsor.phone && (
-                <a href={`tel:${sponsor.phone}`} className="block text-primary-600 hover:underline mb-2">
-                  {sponsor.phone}
-                </a>
-              )}
-
-              {sponsor.primaryArea && (
-                <p className="text-gray-600 mb-2">{sponsor.primaryArea}</p>
-              )}
-
-              {sponsor.coverageDistricts?.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-sm text-gray-500 mb-1">Districts covered:</p>
-                  <div className="flex flex-wrap gap-1">
-                    {sponsor.coverageDistricts.map((d, i) => (
-                      <span key={i} className="text-xs bg-gray-100 px-2 py-1 rounded">{d}</span>
-                    ))}
+            <div className="flex-1 overflow-y-auto">
+              {/* Identity */}
+              <div className="px-5 py-5 border-b border-gray-50">
+                <div className="flex items-start gap-4">
+                  <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-bold shrink-0 ${getAvatarColor(sponsor.fullName)}`}>
+                    {getInitials(sponsor.fullName)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-semibold text-gray-900 truncate">{sponsor.fullName}</h3>
+                    {sponsor.phone && (
+                      <a href={`tel:${sponsor.phone}`} className="flex items-center gap-1 text-sm text-primary hover:underline mt-0.5">
+                        <Phone size={12} /> {sponsor.phone}
+                      </a>
+                    )}
+                    {(sponsor.permanentDistrict || sponsor.primaryArea) && (
+                      <p className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
+                        <MapPin size={11} /> {sponsor.permanentDistrict || sponsor.primaryArea}
+                      </p>
+                    )}
                   </div>
                 </div>
-              )}
+              </div>
 
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                <div className="bg-gray-50 rounded p-3 text-center">
-                  <div className="text-xl font-bold text-gray-900">{sponsor.candidatesReferred || 0}</div>
-                  <div className="text-xs text-gray-500">Referred</div>
-                </div>
-                <div className="bg-gray-50 rounded p-3 text-center">
-                  <div className="text-xl font-bold text-gray-900">{sponsor.candidatesDeparted || 0}</div>
-                  <div className="text-xs text-gray-500">Departed</div>
-                </div>
-                <div className="bg-gray-50 rounded p-3 text-center">
-                  <div className={`text-xl font-bold ${getRateColor(departureRate)}`}>{departureRate}%</div>
-                  <div className="text-xs text-gray-500">Rate</div>
+              {/* Stats */}
+              <div className="px-5 py-4 border-b border-gray-50">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-blue-50 rounded-xl p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Users size={14} className="text-blue-500" />
+                      <span className="text-xs text-blue-600 font-medium">Total Sent</span>
+                    </div>
+                    <div className="text-2xl font-bold text-blue-700">{totalReferred}</div>
+                  </div>
+                  <div className="bg-emerald-50 rounded-xl p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <PlaneTakeoff size={14} className="text-emerald-500" />
+                      <span className="text-xs text-emerald-600 font-medium">Departed</span>
+                    </div>
+                    <div className="text-2xl font-bold text-emerald-700">{totalDeparted}</div>
+                  </div>
+                  <div className="bg-amber-50 rounded-xl p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <TrendingUp size={14} className="text-amber-500" />
+                      <span className="text-xs text-amber-600 font-medium">Active Pipeline</span>
+                    </div>
+                    <div className="text-2xl font-bold text-amber-700">{totalActive}</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Clock size={14} className="text-gray-400" />
+                      <span className="text-xs text-gray-500 font-medium">Last Referral</span>
+                    </div>
+                    <div className="text-base font-semibold text-gray-700">{formatLastReferral(lastReferral)}</div>
+                  </div>
                 </div>
               </div>
 
+              {/* Status management */}
+              <div className="px-5 py-4 border-b border-gray-50">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Agent Status</p>
+                <div className="flex gap-2">
+                  {AGENT_STATUS.map(s => (
+                    <button
+                      key={s.value}
+                      onClick={() => handleStatusChange(s.value)}
+                      disabled={updatingStatus}
+                      className={`flex-1 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+                        currentStatus === s.value
+                          ? `${s.cls} border-current shadow-sm`
+                          : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300 hover:text-gray-600'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Candidates list */}
               {sponsor.candidates?.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">
-                    Candidates from this sponsor ({sponsor.candidates.length})
+                <div className="px-5 py-4 border-b border-gray-50">
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                    Candidates ({sponsor.candidates.length})
                   </h4>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                  <div className="space-y-2 max-h-52 overflow-y-auto">
                     {sponsor.candidates.map(c => (
                       <Link
                         key={c._id}
                         to={`/candidates/${c._id}`}
-                        className="block p-2 bg-gray-50 rounded hover:bg-gray-100"
+                        onClick={onClose}
+                        className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                       >
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium">{c.fullName}</span>
-                          <span className={`text-xs px-1.5 py-0.5 rounded ${STATUS_COLORS[c.status] || 'bg-gray-100'}`}>
-                            {STATUS_LABELS[c.status] || c.status}
-                          </span>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">{c.fullName}</p>
+                          <p className="text-xs text-gray-400">
+                            {c.desiredCountry ? `${COUNTRY_FLAGS?.[c.desiredCountry] || ''} ${c.desiredCountry}` : '—'}
+                          </p>
                         </div>
-                        <div className="text-xs text-gray-500 flex justify-between">
-                          <span>{c.desiredCountry ? `${COUNTRY_FLAGS[c.desiredCountry] || ''} ${c.desiredCountry}` : '-'}</span>
-                          <span>{c.registeredAtBS || ''}</span>
-                        </div>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[c.status] || 'bg-gray-100 text-gray-600'}`}>
+                          {STATUS_LABELS[c.status] || c.status}
+                        </span>
                       </Link>
                     ))}
                   </div>
                 </div>
               )}
 
-              <div className="mb-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Contact Info</h4>
-                <div className="space-y-1 text-sm">
+              {/* Contact details */}
+              <div className="px-5 py-4 border-b border-gray-50">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Contact Info</h4>
+                <div className="space-y-1 text-sm text-gray-600">
                   {sponsor.alternatePhone && <p>Alt: {sponsor.alternatePhone}</p>}
                   {sponsor.email && <p>Email: {sponsor.email}</p>}
                   {sponsor.citizenshipNumber && <p>Citizenship: {sponsor.citizenshipNumber}</p>}
                   {sponsor.currentAddress && <p>Address: {sponsor.currentAddress}</p>}
+                  {sponsor.coverageDistricts?.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {sponsor.coverageDistricts.map((d, i) => (
+                        <span key={i} className="text-xs bg-gray-100 px-2 py-0.5 rounded">{d}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="mb-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Notes</h4>
+              {/* Notes */}
+              <div className="px-5 py-4">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Notes</h4>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   onBlur={handleNotesSave}
                   disabled={savingNotes}
-                  placeholder="Add notes..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  placeholder="Add notes about this agent..."
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
                   rows={3}
                 />
               </div>
-
-              {sponsor.introducedBy && (
-                <p className="text-xs text-gray-500">
-                  Added by: {sponsor.introducedBy.name || 'Staff'}
-                </p>
-              )}
             </div>
 
-            <div className="px-4 py-3 border-t flex gap-2">
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-gray-100 flex gap-2 bg-gray-50">
               <button
                 onClick={() => onEdit?.(sponsor)}
-                className="flex-1 px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700"
+                className="flex-1 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
               >
-                Edit Sponsor
+                Edit Agent
               </button>
-              <button
-                onClick={() => window.location.href = `/candidates?sponsor=${sponsor._id}`}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
+              <Link
+                to={`/candidates?sponsor=${sponsor._id}`}
+                onClick={onClose}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-white transition-colors text-center"
               >
-                View All Candidates
-              </button>
+                All Candidates
+              </Link>
             </div>
           </>
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-gray-500">Sponsor not found</div>
-          </div>
         )}
       </div>
     </div>

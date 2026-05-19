@@ -185,6 +185,7 @@ const SponsorSection = () => {
         isOpen={showProfileDrawer}
         onClose={() => { setShowProfileDrawer(false); setSelectedSponsorId(null); }}
         onEdit={(sponsor) => { setShowProfileDrawer(false); handleEdit(sponsor); }}
+        onStatusChange={() => getSponsors()}
       />
 
       <ConfirmDialog

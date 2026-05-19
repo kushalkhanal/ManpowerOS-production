@@ -1,4 +1,3 @@
-import { createPortal } from 'react-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const SponsorThreeDotMenu = ({ sponsor, onViewProfile, onEdit, onViewCandidates, onDeactivate, onDelete }) => {
@@ -6,7 +5,7 @@ const SponsorThreeDotMenu = ({ sponsor, onViewProfile, onEdit, onViewCandidates,
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
   const isManager = user?.role === 'manager' || user?.role === 'admin' || user?.role === 'superadmin';
 
-  return createPortal(
+  return (
     <div className="absolute right-0 top-8 z-50 w-48 bg-white rounded-md shadow-lg border py-1">
       <button
         onClick={onViewProfile}
@@ -62,8 +61,7 @@ const SponsorThreeDotMenu = ({ sponsor, onViewProfile, onEdit, onViewCandidates,
           </button>
         </>
       )}
-    </div>,
-    document.body
+    </div>
   );
 };
 

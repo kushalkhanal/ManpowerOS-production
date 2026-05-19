@@ -140,11 +140,11 @@ const SponsorFormModal = ({ isOpen, onClose, onSuccess, sponsor = null }) => {
         ? prev.coverageProvinces.filter(p => p !== province)
         : [...prev.coverageProvinces, province];
       
-      const newDistricts = newProvinces.length === 0 
+      const newDistricts = newProvinces.length === 0
         ? []
         : prev.coverageDistricts.filter(d => {
-            const districtInfo = NEPAL_DISTRICTS.find(g => g.districts.includes(d));
-            return districtInfo && newProvinces.includes(districtInfo.province);
+            const provinceEntry = Object.entries(NEPAL_DISTRICTS_BY_PROVINCE).find(([, districts]) => districts.includes(d));
+            return provinceEntry && newProvinces.includes(provinceEntry[0]);
           });
       
       return {

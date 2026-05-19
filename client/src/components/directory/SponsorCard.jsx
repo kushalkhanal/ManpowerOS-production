@@ -1,22 +1,34 @@
 import { useState, useRef, useEffect } from 'react';
+import { Phone, MapPin, MoreVertical } from 'lucide-react';
 import SponsorThreeDotMenu from './SponsorThreeDotMenu';
 
+const AGENT_STATUS_STYLE = {
+  active:      'bg-emerald-100 text-emerald-700',
+  passive:     'bg-amber-100 text-amber-700',
+  blacklisted: 'bg-red-100 text-red-700',
+};
+
 const getAvatarColor = (name) => {
-  const colors = [
-    'bg-primary-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500',
-    'bg-pink-500', 'bg-primary-500', 'bg-red-500', 'bg-teal-500', 'bg-orange-500'
-  ];
-  const hash = name?.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) || 0;
+  const colors = ['bg-primary', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500', 'bg-pink-500', 'bg-teal-500', 'bg-orange-500'];
+  const hash = name?.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) || 0;
   return colors[hash % colors.length];
 };
 
 const getInitials = (name) => {
   if (!name) return '??';
-  const parts = name.split(' ');
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  }
-  return name.substring(0, 2).toUpperCase();
+  const parts = name.trim().split(' ');
+  return parts.length >= 2
+    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    : name.substring(0, 2).toUpperCase();
+};
+
+const formatLastReferral = (date) => {
+  if (!date) return null;
+  const days = Math.floor((Date.now() - new Date(date)) / 86400000);
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 30) return `${days}d ago`;
+  return `${Math.floor(days / 30)}mo ago`;
 };
 
 const SponsorCard = ({ sponsor, onViewProfile, onEdit, onViewCandidates, onDeactivate, onDelete }) => {
@@ -24,63 +36,84 @@ const SponsorCard = ({ sponsor, onViewProfile, onEdit, onViewCandidates, onDeact
   const menuRef = useRef(null);
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuOpen(false);
-      }
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const displayDistricts = sponsor.coverageDistricts?.slice(0, 3) || [];
-  const moreCount = (sponsor.coverageDistricts?.length || 0) - 3;
-
-  const formatRole = (role) => {
-    const roles = {
-      agent: 'Agent',
-      senior_agent: 'Senior Agent',
-      partner: 'Partner',
-      coordinator: 'Coordinator',
-      manager: 'Manager'
-    };
-    return roles[role] || role;
-  };
+  const agentStatusStyle = AGENT_STATUS_STYLE[sponsor.agentStatus] || AGENT_STATUS_STYLE.active;
+  const agentStatusLabel = sponsor.agentStatus
+    ? sponsor.agentStatus.charAt(0).toUpperCase() + sponsor.agentStatus.slice(1)
+    : 'Active';
+  const lastRef = formatLastReferral(sponsor.lastReferralDate);
+  const location = sponsor.permanentDistrict || sponsor.primaryArea;
 
   return (
-    <div className="bg-white rounded-lg shadow border border-gray-200 p-3">
-      <div className="flex items-start gap-2">
-        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium text-sm ${getAvatarColor(sponsor.fullName)}`}>
+    <div
+      className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow cursor-pointer"
+      onClick={() => onViewProfile?.(sponsor)}
+    >
+      <div className="flex items-start gap-3">
+        {/* Avatar */}
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm shrink-0 ${getAvatarColor(sponsor.fullName)}`}>
           {getInitials(sponsor.fullName)}
         </div>
 
+        {/* Info */}
         <div className="flex-1 min-w-0">
-          <h4 className="font-medium text-gray-900 truncate text-sm">{sponsor.fullName}</h4>
-          {sponsor.primaryArea && (
-            <p className="text-xs text-gray-500 truncate">{sponsor.primaryArea}</p>
-          )}
-          <div className="flex items-center gap-1 mt-1">
-            <span className={`inline-block px-1.5 py-0.5 text-xs font-medium rounded-full ${
-              sponsor.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-            }`}>
-              {sponsor.isActive ? 'Active' : 'Inactive'}
+          <div className="flex items-center gap-2 flex-wrap">
+            <h4 className="font-semibold text-gray-900 text-sm truncate">{sponsor.fullName}</h4>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${agentStatusStyle}`}>
+              {agentStatusLabel}
             </span>
             {sponsor.role && (
-              <span className="inline-block px-1.5 py-0.5 text-xs font-medium rounded-full bg-primary-100 text-primary-800">
-                {formatRole(sponsor.role)}
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium capitalize">
+                {sponsor.role.replace('_', ' ')}
               </span>
             )}
           </div>
+
+          <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
+            {sponsor.phone && (
+              <a
+                href={`tel:${sponsor.phone}`}
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1 hover:text-primary"
+              >
+                <Phone size={10} /> {sponsor.phone}
+              </a>
+            )}
+            {location && (
+              <span className="flex items-center gap-1">
+                <MapPin size={10} /> {location}
+              </span>
+            )}
+          </div>
+
+          {lastRef && (
+            <p className="mt-1 text-[10px] text-gray-400">Last referral: {lastRef}</p>
+          )}
+
+          {sponsor.introducedBy && (
+            <p className="mt-0.5 text-[10px] text-gray-400">
+              Added by: {sponsor.introducedBy.name || 'Staff'}
+            </p>
+          )}
         </div>
 
-        <div className="relative" ref={menuRef}>
+        {/* Three-dot menu */}
+        <div
+          className="relative shrink-0"
+          ref={menuRef}
+          onClick={(e) => e.stopPropagation()}
+        >
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            className="p-1 hover:bg-gray-100 rounded"
+            className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
           >
-            <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-            </svg>
+            <MoreVertical size={16} />
           </button>
           {menuOpen && (
             <SponsorThreeDotMenu
@@ -94,52 +127,6 @@ const SponsorCard = ({ sponsor, onViewProfile, onEdit, onViewCandidates, onDeact
           )}
         </div>
       </div>
-
-      <div className="mt-2 text-xs text-gray-600">
-        <a href={`tel:${sponsor.phone}`} className="hover:text-primary-600">
-          {sponsor.phone}
-        </a>
-        {sponsor.permanentDistrict && (
-          <p>{sponsor.permanentDistrict}{sponsor.permanentProvince ? `, ${sponsor.permanentProvince.replace(' Province', '')}` : ''}</p>
-        )}
-      </div>
-
-      {displayDistricts.length > 0 && (
-        <div className="mt-2">
-          <p className="text-xs text-gray-500">Districts:</p>
-          <div className="flex flex-wrap gap-1 mt-0.5">
-            {displayDistricts.map((district, idx) => (
-              <span key={idx} className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">
-                {district}
-              </span>
-            ))}
-            {moreCount > 0 && (
-              <span className="text-xs text-gray-500">+{moreCount} more</span>
-            )}
-          </div>
-        </div>
-      )}
-
-      <div className="mt-2 flex gap-2 text-xs">
-        <div className="bg-gray-50 rounded px-2 py-1">
-          <span className="font-semibold">{sponsor.candidatesReferred || 0}</span> sent
-        </div>
-        <div className="bg-gray-50 rounded px-2 py-1">
-          <span className="font-semibold">{sponsor.candidatesDeparted || 0}</span> dept.
-        </div>
-      </div>
-
-      {sponsor.assignedStaffId && (
-        <p className="mt-2 text-xs text-gray-500">
-          Assigned to: {sponsor.assignedStaffId.name || 'Staff'}
-        </p>
-      )}
-
-      {sponsor.introducedBy && (
-        <p className="mt-1 text-xs text-gray-500">
-          Added by: {sponsor.introducedBy.name || 'Staff'}
-        </p>
-      )}
     </div>
   );
 };

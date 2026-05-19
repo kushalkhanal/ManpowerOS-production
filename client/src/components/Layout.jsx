@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import NotificationToast from './NotificationToast';
 import OnboardingChecklist from './OnboardingChecklist';
+import NotificationBell from './NotificationBell';
 import { useAuth } from '../context/AuthContext';
 import { useAlerts } from '../hooks/useAlerts';
 import {
@@ -89,7 +90,7 @@ const Layout = ({ children }) => {
       label: 'Records',
       items: [
         { name: 'Passport Pool', href: '/passports',          icon: BookOpen },
-        { name: 'Sponsors',      href: '/directory/sponsors', icon: Building2 },
+        { name: 'Agents',        href: '/directory/agents',   icon: Building2 },
         { name: 'Documents',     href: '/documents',          icon: FileText },
         { name: 'Departed',      href: '/departed',           icon: PlaneTakeoff },
       ],
@@ -190,15 +191,16 @@ const Layout = ({ children }) => {
       {/* Sidebar for Desktop */}
       <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:w-60 lg:bg-white lg:border-r lg:border-gray-200 z-30">
         <div className="flex flex-col flex-1 overflow-y-auto">
-          <div className="px-4 py-5 border-b border-gray-100">
-            <Link to="/dashboard" className="block">
+          <div className="px-4 py-5 border-b border-gray-100 flex items-center justify-between">
+            <Link to="/dashboard" className="block min-w-0">
               {agency?.name && (
-                <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-0.5">
+                <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-0.5 truncate">
                   {agency.name}
                 </p>
               )}
               <h1 className="text-xl font-bold text-primary">ManpowerOS</h1>
             </Link>
+            <NotificationBell />
           </div>
 
           <nav className="flex-1 px-3 py-4">

@@ -233,11 +233,41 @@ export const updateReturnStatus = asyncHandler(async (req, res) => {
   );
   if (!record) return res.status(404).json({ message: "Record not found" });
 
-  // If returned, set passport back to in_pool
+  // If returned, set passport back to in_pool and recreate a stub candidate
   if (returnStatus === "returned" && record.originalPassportId) {
-    await Passport.findByIdAndUpdate(record.originalPassportId, {
-      $set: { allocationStatus: "in_pool" },
-    });
+    const passport = await Passport.findByIdAndUpdate(
+      record.originalPassportId,
+      { $set: { allocationStatus: "in_pool", candidateId: null, allocatedToDemandId: null } },
+      { new: true }
+    );
+
+    if (passport) {
+      try {
+        const stub = await Candidate.findOneAndUpdate(
+          { agencyId: passport.agencyId, passportId: passport._id },
+          {
+            $setOnInsert: {
+              agencyId: passport.agencyId,
+              fullName: record.fullName,
+              fullNameNepali: record.fullNameNepali,
+              dateOfBirth: record.dateOfBirth,
+              gender: record.gender || "male",
+              phone: record.phone || "",
+              passportId: passport._id,
+              passportNumber: passport.passportNumber,
+              nationalIdNumber: passport.passportNumber,
+              permanentDistrict: record.permanentDistrict,
+              status: "registered",
+              registeredAt: new Date(),
+            },
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+        await Passport.findByIdAndUpdate(passport._id, { $set: { candidateId: stub._id } });
+      } catch (err) {
+        // Non-fatal — passport is back in pool; staff can use ensureCandidate endpoint
+      }
+    }
   }
 
   res.json(record);

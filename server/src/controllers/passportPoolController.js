@@ -69,6 +69,9 @@ const getPoolPassports = asyncHandler(async (req, res) => {
     ];
   }
 
+  // Only show passports that are actually in the pool
+  filter.allocationStatus = 'in_pool';
+
   const [passports, total] = await Promise.all([
     Passport.find(filter)
       .sort({ collectedAt: 1 })
@@ -517,9 +520,11 @@ const deallocatePassport = asyncHandler(async (req, res) => {
 
   if (passport.candidateId) {
     await Candidate.findByIdAndUpdate(passport.candidateId, {
-      status: 'cancelled',
-      cancellationReason: reason || 'Returned to passport pool',
-      $unset: { demandId: 1, assignedDemand: 1 }
+      $set: {
+        status: 'registered',
+        demandId: null,
+      },
+      $unset: { assignedDemand: 1, desiredCountry: 1, desiredJobCategory: 1 }
     });
   }
 
