@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { useAlerts } from '../../hooks/useAlerts';
-import { dashboardApi } from '../../api/dashboard.api';
+import { useAuth } from '../context/AuthContext';
+import { useAlerts } from '../hooks/useAlerts';
+import { dashboardApi } from '../api/dashboard.api';
+import NotificationBell from '../components/NotificationBell';
 import {
   RefreshCw, AlertTriangle, Users, Globe, Plane,
   AlertCircle, CheckCircle2, XCircle, Clock, TrendingUp,
@@ -247,13 +248,16 @@ const TodayDashboard = () => {
             <h1 className="text-xl font-bold text-gray-900">{greeting(user?.name)}</h1>
             <p className="text-sm text-gray-400 mt-0.5">{todayLabel()}</p>
           </div>
-          <button
-            onClick={() => fetchAll(true)}
-            className="p-2 text-gray-400 hover:text-primary transition-colors rounded-lg hover:bg-gray-50"
-            title="Refresh"
-          >
-            <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
-          </button>
+          <div className="flex items-center gap-1">
+            <NotificationBell />
+            <button
+              onClick={() => fetchAll(true)}
+              className="p-2 text-gray-400 hover:text-primary transition-colors rounded-lg hover:bg-gray-50"
+              title="Refresh"
+            >
+              <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
+            </button>
+          </div>
         </div>
       </div>
 

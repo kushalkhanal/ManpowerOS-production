@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { orientationApi } from '../../api/orientation.api';
-import { useBulkSelect } from '../../hooks/useBulkSelect';
+import { orientationApi } from '../api/orientation.api';
+import { useBulkSelect } from '../hooks/useBulkSelect';
 import {
   GraduationCap, RefreshCw, CheckCircle2, AlertCircle,
   ChevronRight, Users, FileWarning

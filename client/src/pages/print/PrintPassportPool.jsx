@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { personsApi, passportApi } from '../../../api';
+import { personsApi, passportApi } from '../../api';
 
 // Printable A4 detail sourced from the Passport Pool. Layout matches the
 // agency reference: cyan section headers in a two-column grid. Sections

@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import User from './models/User.js';
+import User from '../src/models/User.js';
 
 dotenv.config();
 
@@ -9,7 +9,7 @@ const args = process.argv.slice(2);
 const command = args[0];
 
 if (command !== 'create-superadmin') {
-  console.log('Usage: node bootstrap.js create-superadmin <email> <password>');
+  console.log('Usage: node scripts/bootstrap.js create-superadmin <email> <password>');
   console.log('');
   console.log('This command is valid for one-time use only.');
   console.log('It will be invalidated after execution.');
@@ -54,15 +54,15 @@ mongoose.connect(MONGODB_URI)
       process.exit(1);
     }
 
-    const superadmin = await User.create({
-      agencyId: null, // Superadmin doesn't belong to a specific agency
+    await User.create({
+      agencyId: null,
       name: 'Super Admin',
       email: email.toLowerCase(),
       passwordHash: password,
       role: 'superadmin',
       mfaEnabled: false,
       isActive: true,
-      mustChangePassword: false
+      mustChangePassword: false,
     });
 
     console.log('Super admin created successfully:');
@@ -70,8 +70,6 @@ mongoose.connect(MONGODB_URI)
     console.log('');
     console.log('IMPORTANT: Bootstrap mechanism has been invalidated.');
     console.log('You must now configure MFA for this super admin account.');
-    console.log('');
-    console.log('Run: node server/bootstrap.js setup-mfa <email>');
 
     await mongoose.disconnect();
     process.exit(0);

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { candidatesApi, sharedDocumentsApi } from '../../../api';
-import { useAuth } from '../../../context/AuthContext';
+import { candidatesApi, sharedDocumentsApi } from '../../api';
+import { useAuth } from '../../context/AuthContext';
 
 const fmtDate = (d) => {
   if (!d) return '—';

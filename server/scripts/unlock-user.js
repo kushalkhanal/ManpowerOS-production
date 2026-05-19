@@ -1,11 +1,6 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import User from './src/models/User.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import User from '../src/models/User.js';
 
 dotenv.config();
 
@@ -16,21 +11,17 @@ async function unlockUser() {
     await mongoose.connect(MONGODB_URI);
     console.log('Connected to MongoDB');
 
+    const email = process.argv[2] || 'manpower@gmail.com';
+
     const result = await User.updateOne(
-      { email: 'manpower@gmail.com' },
-      { 
-        $set: { 
-          failedLoginAttempts: 0, 
-          lockedUntil: null,
-          isActive: true 
-        } 
-      }
+      { email },
+      { $set: { failedLoginAttempts: 0, lockedUntil: null, isActive: true } }
     );
 
     if (result.matchedCount > 0) {
-      console.log('User manpower@gmail.com has been unlocked and failed attempts reset.');
+      console.log(`User ${email} has been unlocked and failed attempts reset.`);
     } else {
-      console.log('User manpower@gmail.com not found.');
+      console.log(`User ${email} not found.`);
     }
 
     await mongoose.disconnect();

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Globe,
@@ -12,13 +12,13 @@ import {
   Save,
   RefreshCw,
 } from "lucide-react";
-import feimsApi from "../../api/feims.api.js";
+import feimsApi from "../api/feims.api.js";
 import {
   STATUS_LABELS,
   STATUS_COLORS,
   getCountryFlag,
-} from "../../domain/workflow";
-import { showToast } from "../../components/ToastProvider";
+} from "../domain/workflow";
+import { showToast } from "../components/ToastProvider";
 
 const FEIMS_PORTAL = "https://feims.dofe.gov.np";
 

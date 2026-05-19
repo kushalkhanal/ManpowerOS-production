@@ -1,43 +1,14 @@
 import ExcelJS from "exceljs";
 import JobDemand from "../models/JobDemand.js";
-import Candidate, { NEPAL_DISTRICTS_LIST } from "../models/Candidate.js";
+import Candidate from "../models/Candidate.js";
 import Passport from "../models/Passport.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { computeAndSaveCandidateStatus } from "../services/candidateStatusService.js";
 import { scopeFilter, scopeData } from "../utils/tenantHelper.js";
 import logger from "../config/logger.js";
+import { normalizeDistrict } from "../constants/nepalDistricts.js";
 
-// Some legacy passport records carry typo'd district names (e.g.
-// "Sindhupalachok" with an extra 'a' instead of the canonical
-// "Sindhupalchok"). The Passport model stores district as a free-form String,
-// but the Candidate model enforces an enum, so copying passport → candidate
-// during allocation would otherwise fail validation. Map known typo variants
-// to the canonical name; drop the field entirely if we can't match.
-const DISTRICT_ALIAS_MAP = {
-  sindhupalachok: "Sindhupalchok",
-  sindupalchok: "Sindhupalchok",
-  kavre: "Kavrepalanchok",
-  kavrepalanchowk: "Kavrepalanchok",
-  newalparasi: "Nawalparasi",
-  rukum: "Rolpa", // ambiguous; drop or pick best — Rolpa neighbours both Rukum E/W
-};
-
-const sanitizeDistrict = (raw) => {
-  if (!raw || typeof raw !== "string") return undefined;
-  const trimmed = raw.trim();
-  if (!trimmed) return undefined;
-  // Exact match against the canonical enum
-  if (NEPAL_DISTRICTS_LIST.includes(trimmed)) return trimmed;
-  // Case-insensitive match
-  const lower = trimmed.toLowerCase();
-  const exact = NEPAL_DISTRICTS_LIST.find((d) => d.toLowerCase() === lower);
-  if (exact) return exact;
-  // Known typo aliases
-  if (DISTRICT_ALIAS_MAP[lower]) return DISTRICT_ALIAS_MAP[lower];
-  // Give up — don't block the allocation; just leave the field unset and let
-  // the user fix it on the candidate edit screen.
-  return undefined;
-};
+const sanitizeDistrict = (raw) => normalizeDistrict(raw) ?? undefined;
 
 const createDemand = asyncHandler(async (req, res) => {
   const {

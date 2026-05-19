@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { medicalApi } from '../../api/medical.api';
-import { useBulkSelect } from '../../hooks/useBulkSelect';
+import { medicalApi } from '../api/medical.api';
+import { useBulkSelect } from '../hooks/useBulkSelect';
 import {
   Stethoscope, RefreshCw, CheckCircle2, XCircle, Clock,
   AlertCircle, ChevronRight, AlertTriangle

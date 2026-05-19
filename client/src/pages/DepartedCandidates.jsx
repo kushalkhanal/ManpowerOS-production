@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+﻿import { useState, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   PlaneTakeoff, Search, RefreshCw, X,
@@ -6,10 +6,10 @@ import {
   FileText, DollarSign, User, MapPin,
   CheckCircle2, Plane
 } from 'lucide-react';
-import { departedApi } from '../../api/departed.api';
-import { getCountryFlag } from '../../domain/workflow';
-import { showToast } from '../../components/ToastProvider';
-import { useAuth } from '../../context/AuthContext';
+import { departedApi } from '../api/departed.api';
+import { getCountryFlag } from '../domain/workflow';
+import { showToast } from '../components/ToastProvider';
+import { useAuth } from '../context/AuthContext';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

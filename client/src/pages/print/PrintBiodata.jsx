@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { candidatesApi } from '../../../api';
+import { candidatesApi } from '../../api';
 
 const fmt = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : '—';

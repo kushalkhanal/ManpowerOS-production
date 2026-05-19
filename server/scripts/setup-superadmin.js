@@ -1,11 +1,6 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import User from './src/models/User.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import User from '../src/models/User.js';
 
 dotenv.config();
 
@@ -19,20 +14,18 @@ async function setupSuperAdmin() {
     const email = 'superadmin@gmail.com';
     const password = 'Password@123';
 
-    // 1. Remove any existing user with this email to start fresh
     await User.deleteOne({ email });
     console.log(`Cleared existing data for ${email}`);
 
-    // 2. Create the new Super Admin
-    const superadmin = await User.create({
+    await User.create({
       agencyId: null,
       name: 'Global Super Admin',
-      email: email,
-      passwordHash: password, // The User model will hash this automatically in its pre-save hook
+      email,
+      passwordHash: password,
       role: 'superadmin',
       isActive: true,
       failedLoginAttempts: 0,
-      lockedUntil: null
+      lockedUntil: null,
     });
 
     console.log('--------------------------------------------------');

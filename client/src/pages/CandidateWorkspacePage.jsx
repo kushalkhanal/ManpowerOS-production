@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ChevronDown,
@@ -29,7 +29,7 @@ import {
   Clock,
   Trash2,
 } from "lucide-react";
-import { candidatesApi, feeApi, taskApi } from "../../api";
+import { candidatesApi, feeApi, taskApi } from "../api";
 import {
   listPipelineStages,
   STAGE_FOR_STATUS,
@@ -41,29 +41,29 @@ import {
   getRegionForCountry,
   REGION,
   STAGE,
-} from "../../domain/workflow";
-import { useAuth } from "../../context/AuthContext";
-import { showToast } from "../../components/ToastProvider";
-import ComplianceRecordsCard from "../../components/ComplianceRecordsCard";
-import TradeTestCard from "../../components/TradeTestCard";
-import DocumentVault from "../../components/DocumentVault";
-import MedicalModal from "../../components/MedicalModal";
-import InsuranceModal from "../../components/InsuranceModal";
-import CallingVisaModal from "../../components/CallingVisaModal";
-import OrientationModal from "../../components/OrientationModal";
-import VisaModal from "../../components/VisaModal";
-import FeimsModal from "../../components/FeimsModal";
-import DepartureModal from "../../components/DepartureModal";
-import PassportCollectionModal from "../../components/PassportCollectionModal";
-import SecureLink from "../../components/SecureLink";
-import FeeModal from "../../components/FeeModal";
-import ActivityLogModal from "../../components/ActivityLogModal";
-import FEIMSSummaryModal from "../../components/FEIMSSummaryModal";
-import ContractsPanel from "../../components/ContractsPanel";
+} from "../domain/workflow";
+import { useAuth } from "../context/AuthContext";
+import { showToast } from "../components/ToastProvider";
+import ComplianceRecordsCard from "../components/ComplianceRecordsCard";
+import TradeTestCard from "../components/TradeTestCard";
+import DocumentVault from "../components/DocumentVault";
+import MedicalModal from "../components/MedicalModal";
+import InsuranceModal from "../components/InsuranceModal";
+import CallingVisaModal from "../components/CallingVisaModal";
+import OrientationModal from "../components/OrientationModal";
+import VisaModal from "../components/VisaModal";
+import FeimsModal from "../components/FeimsModal";
+import DepartureModal from "../components/DepartureModal";
+import PassportCollectionModal from "../components/PassportCollectionModal";
+import SecureLink from "../components/SecureLink";
+import FeeModal from "../components/FeeModal";
+import ActivityLogModal from "../components/ActivityLogModal";
+import FEIMSSummaryModal from "../components/FEIMSSummaryModal";
+import ContractsPanel from "../components/ContractsPanel";
 import DepartureGatePanel, {
   evaluateGate,
-} from "../../components/DepartureGatePanel";
-import { ConfirmDialog } from "../../components/ui";
+} from "../components/DepartureGatePanel";
+import { ConfirmDialog } from "../components/ui";
 
 // ─── Documentation checklist ─────────────────────────────────────────────────
 
@@ -89,7 +89,7 @@ const DocumentationChecklist = ({ candidate, passport }) => {
 
   useEffect(() => {
     if (!entityId) return;
-    import('../../api').then(({ sharedDocumentsApi }) => {
+    import('../api').then(({ sharedDocumentsApi }) => {
       sharedDocumentsApi.getDocuments(entityType, entityId)
         .then(r => setSharedDoc(r.data))
         .catch(() => {});
@@ -102,7 +102,7 @@ const DocumentationChecklist = ({ candidate, passport }) => {
     if (!file) return;
     setUploading(p => ({ ...p, [key]: true }));
     try {
-      const { sharedDocumentsApi } = await import('../../api');
+      const { sharedDocumentsApi } = await import('../api');
       const r = await sharedDocumentsApi.uploadDocument(entityType, entityId, key, file);
       setSharedDoc(r.data);
     } catch {

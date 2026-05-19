@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { formatBSDisplay } from "../utils/bsDate.js";
+import { NEPAL_DISTRICTS } from "../constants/nepalDistricts.js";
 
 const passportSchema = new mongoose.Schema(
   {
@@ -32,7 +33,7 @@ const passportSchema = new mongoose.Schema(
     },
     issueDate: Date,
     expiryDate: Date,
-    issuedDistrict: String,
+    issuedDistrict: { type: String, enum: [...NEPAL_DISTRICTS, null] },
     scannedImageUrl: String,
     custodyStatus: {
       type: String,
@@ -78,7 +79,7 @@ const passportSchema = new mongoose.Schema(
       ref: "User",
     },
     age: Number,
-    districtOfOrigin: String,
+    districtOfOrigin: { type: String, enum: [...NEPAL_DISTRICTS, null] },
     contactPhone: String,
     contactAddress: String,
     desiredCountry: String,

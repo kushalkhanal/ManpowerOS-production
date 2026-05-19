@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -10,7 +11,6 @@ import GetStarted from './pages/GetStarted';
 import ChangePassword from './pages/ChangePassword';
 import PassportList from './pages/PassportList';
 import PassportDetail from './pages/PassportDetail';
-import PassportScanner from './components/modules/PassportScanner';
 import CandidateList from './pages/CandidateList';
 import DirectoryPage from './pages/DirectoryPage';
 import StaffPage from './pages/StaffPage';
@@ -22,22 +22,30 @@ import Alerts from './pages/Alerts';
 import Settings from './pages/Settings';
 import Tasks from './pages/Tasks';
 import Documents from './pages/Documents';
-import SuperAdminDashboard from './pages/SuperAdminDashboard';
-import AgencyManagement from './pages/AgencyManagement';
 import SetPasswordPage from './pages/SetPasswordPage';
 import NotFound from './pages/NotFound';
-import CandidateWorkspacePage from './pages/v2/CandidateWorkspacePage';
-import FeimsSubmissionCenter from './pages/v2/FeimsSubmissionCenter';
-import TodayDashboard from './pages/v2/TodayDashboard';
-import GulfVisaBoard from './pages/v2/GulfVisaBoard';
-import MalaysiaPlksBoard from './pages/v2/MalaysiaPlksBoard';
-import MedicalBoard from './pages/v2/MedicalBoard';
-import OrientationBoard from './pages/v2/OrientationBoard';
-import DepartedCandidates from './pages/v2/DepartedCandidates';
-import PrintBiodata from './pages/v2/print/PrintBiodata';
-import PrintFeimsPacket from './pages/v2/print/PrintFeimsPacket';
-import PrintDeparture from './pages/v2/print/PrintDeparture';
-import PrintCV from './pages/v2/print/PrintCV';
+import CandidateWorkspacePage from './pages/CandidateWorkspacePage';
+import TodayDashboard from './pages/TodayDashboard';
+import GulfVisaBoard from './pages/GulfVisaBoard';
+import MalaysiaPlksBoard from './pages/MalaysiaPlksBoard';
+import MedicalBoard from './pages/MedicalBoard';
+import OrientationBoard from './pages/OrientationBoard';
+import DepartedCandidates from './pages/DepartedCandidates';
+
+const PassportScanner = lazy(() => import('./components/modules/PassportScanner'));
+const SuperAdminDashboard = lazy(() => import('./pages/SuperAdminDashboard'));
+const AgencyManagement = lazy(() => import('./pages/AgencyManagement'));
+const FeimsSubmissionCenter = lazy(() => import('./pages/FeimsSubmissionCenter'));
+const PrintBiodata = lazy(() => import('./pages/print/PrintBiodata'));
+const PrintFeimsPacket = lazy(() => import('./pages/print/PrintFeimsPacket'));
+const PrintDeparture = lazy(() => import('./pages/print/PrintDeparture'));
+const PrintCV = lazy(() => import('./pages/print/PrintCV'));
+
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+  </div>
+);
 
 const V2CandidateRedirect = () => {
   const { id } = useParams();
@@ -116,7 +124,9 @@ const App = () => {
           element={
             <ProtectedRoute>
               <Layout>
-                <FeimsSubmissionCenter />
+                <Suspense fallback={<PageLoader />}>
+                  <FeimsSubmissionCenter />
+                </Suspense>
               </Layout>
             </ProtectedRoute>
           }
@@ -176,7 +186,7 @@ const App = () => {
           }
         />
         <Route
-          path="/directory/sponsors"
+          path="/directory/agents"
           element={
             <ProtectedRoute>
               <Layout>
@@ -209,7 +219,9 @@ const App = () => {
           path="/passport/scanner"
           element={
             <ProtectedRoute>
-              <PassportScanner />
+              <Suspense fallback={<PageLoader />}>
+                <PassportScanner />
+              </Suspense>
             </ProtectedRoute>
           }
         />
@@ -299,7 +311,9 @@ const App = () => {
           element={
             <ProtectedRoute allowedRoles={['superadmin']}>
               <Layout>
-                <SuperAdminDashboard />
+                <Suspense fallback={<PageLoader />}>
+                  <SuperAdminDashboard />
+                </Suspense>
               </Layout>
             </ProtectedRoute>
           }
@@ -309,7 +323,9 @@ const App = () => {
           element={
             <ProtectedRoute allowedRoles={['superadmin']}>
               <Layout>
-                <AgencyManagement />
+                <Suspense fallback={<PageLoader />}>
+                  <AgencyManagement />
+                </Suspense>
               </Layout>
             </ProtectedRoute>
           }
@@ -317,19 +333,19 @@ const App = () => {
         {/* Print routes — no Layout wrapper, just auth */}
         <Route
           path="/print/biodata/:candidateId"
-          element={<ProtectedRoute><PrintBiodata /></ProtectedRoute>}
+          element={<ProtectedRoute><Suspense fallback={<PageLoader />}><PrintBiodata /></Suspense></ProtectedRoute>}
         />
         <Route
           path="/print/feims-packet/:candidateId"
-          element={<ProtectedRoute><PrintFeimsPacket /></ProtectedRoute>}
+          element={<ProtectedRoute><Suspense fallback={<PageLoader />}><PrintFeimsPacket /></Suspense></ProtectedRoute>}
         />
         <Route
           path="/print/departure/:candidateId"
-          element={<ProtectedRoute><PrintDeparture /></ProtectedRoute>}
+          element={<ProtectedRoute><Suspense fallback={<PageLoader />}><PrintDeparture /></Suspense></ProtectedRoute>}
         />
         <Route
           path="/print/cv/:candidateId"
-          element={<ProtectedRoute><PrintCV /></ProtectedRoute>}
+          element={<ProtectedRoute><Suspense fallback={<PageLoader />}><PrintCV /></Suspense></ProtectedRoute>}
         />
         <Route
           path="/"
