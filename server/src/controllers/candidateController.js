@@ -360,12 +360,31 @@ const getCandidateById = asyncHandler(async (req, res) => {
   res.status(200).json(candidateData);
 });
 
+// Fields owned by the Passport record — must not be edited on Candidate directly
+// once a passportId is linked. Changes flow Passport → Candidate only.
+const PASSPORT_OWNED_FIELDS = [
+  "fullName",
+  "dateOfBirth",
+  "gender",
+  "passportNumber",
+];
+
 const updateCandidate = asyncHandler(async (req, res) => {
   const updates = { ...req.body };
   delete updates.agencyId;
   delete updates.createdAt;
   delete updates.updatedAt;
   delete updates.status;
+
+  // Drop passport-owned fields when a passport is linked — prevents drift
+  const hasPassportLink = await Candidate.exists({
+    _id: req.params.id,
+    agencyId: req.user.agencyId,
+    passportId: { $exists: true, $ne: null },
+  });
+  if (hasPassportLink) {
+    PASSPORT_OWNED_FIELDS.forEach((f) => delete updates[f]);
+  }
 
   if (updates.nationalIdNumber) {
     const existing = await Candidate.findOne({
@@ -2138,6 +2157,23 @@ export default {
     await Candidate.findByIdAndUpdate(candidateId, {
       $unset: { demandId: 1, assignedDemand: 1 },
     });
+
+    // Return passport to pool
+    const passportFilter = { agencyId };
+    if (candidate.passportId) passportFilter._id = candidate.passportId;
+    else if (candidate.passportNumber)
+      passportFilter.passportNumber = candidate.passportNumber;
+    if (candidate.passportId || candidate.passportNumber) {
+      await Passport.findOneAndUpdate(passportFilter, {
+        $set: {
+          allocationStatus: "in_pool",
+          candidateId: null,
+          allocatedToDemandId: null,
+          allocatedAt: null,
+          allocatedBy: null,
+        },
+      });
+    }
 
     // Recompute candidate status
     await computeAndSaveCandidateStatus(candidateId);
