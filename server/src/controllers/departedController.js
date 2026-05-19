@@ -220,16 +220,15 @@ export const updateReturnStatus = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: "Invalid return status" });
   }
 
+  const resolvedReturnDate =
+    returnDate || (returnStatus === "returned" ? new Date() : undefined);
+
+  const setFields = { returnStatus, returnNotes };
+  if (resolvedReturnDate !== undefined) setFields.returnDate = resolvedReturnDate;
+
   const record = await DepartedRecord.findOneAndUpdate(
     { _id: req.params.id, agencyId: req.user.agencyId },
-    {
-      $set: {
-        returnStatus,
-        returnNotes,
-        returnDate:
-          returnDate || (returnStatus === "returned" ? new Date() : undefined),
-      },
-    },
+    { $set: setFields },
     { new: true },
   );
   if (!record) return res.status(404).json({ message: "Record not found" });

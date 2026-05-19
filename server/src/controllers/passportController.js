@@ -298,6 +298,9 @@ const updatePassportStatus = asyncHandler(async (req, res) => {
 
   if (!custodyStatus) throw new AppError("custodyStatus is required", 400);
 
+  // VALID_TRANSITIONS guards custodyStatus only. allocationStatus ("departed",
+  // "in_pool", "allocated") is managed separately by departedController and
+  // passportPool routes — do NOT add those values here.
   const VALID_TRANSITIONS = {
     with_agency: ["returned_to_candidate", "submitted_embassy", "lost"],
     returned_to_candidate: ["with_agency"],

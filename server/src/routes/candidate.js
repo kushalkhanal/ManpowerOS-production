@@ -2,6 +2,7 @@ import express from "express";
 import candidateController, * as candidateNamed from "../controllers/candidateController.js";
 import { markCandidateDeparted } from "../controllers/departedController.js";
 import { authenticate, authorize } from "../middleware/authenticate.js";
+import { requireRole } from "../middleware/checkPermission.js";
 import {
   filterAgentCandidates,
   checkEditAccess,
@@ -74,7 +75,12 @@ router.patch(
   checkEditAccess,
   candidateController.unassignFromDemand,
 );
-router.post("/:id/depart", checkEditAccess, markCandidateDeparted);
+router.post(
+  "/:id/depart",
+  filterAgentCandidates,
+  requireRole("admin", "manager", "superadmin"),
+  markCandidateDeparted,
+);
 router.patch(
   "/bulk-status",
   sensitiveOperationRateLimiter,
