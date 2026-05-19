@@ -21,6 +21,10 @@ dotenv.config();
 
 const app = express();
 
+// Trust the first proxy hop (Nginx). Required so req.ip and
+// X-Forwarded-For work correctly for rate limiting and logging.
+app.set("trust proxy", 1);
+
 logger.info(`🔧 NODE_ENV: ${process.env.NODE_ENV}`);
 logger.info(`🔧 CORS_ORIGINS: ${process.env.CORS_ORIGINS}`);
 logger.info(`🔧 API_BASE_URL: ${process.env.API_BASE_URL}`);

@@ -440,6 +440,7 @@ const getAlertsData = async (agencyId) => {
 };
 
 const getAlertsDataCached = async (agencyId) => {
+  if (!agencyId) return { alerts: [], total: 0 };
   const cached = getCachedAlerts(agencyId);
   if (cached) return cached;
   const fresh = await getAlertsData(agencyId);

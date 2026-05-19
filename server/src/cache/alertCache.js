@@ -21,9 +21,11 @@ const store = new Map();
  * @returns {{ alerts: object[], total: number } | null}  null = cache miss
  */
 export const getCachedAlerts = (agencyId) => {
-  const entry = store.get(agencyId.toString());
+  if (!agencyId) return null;
+  const key = agencyId.toString();
+  const entry = store.get(key);
   if (!entry || Date.now() > entry.expiresAt) {
-    store.delete(agencyId.toString()); // evict stale entry
+    store.delete(key); // evict stale entry
     return null;
   }
   return entry.data;
@@ -34,6 +36,7 @@ export const getCachedAlerts = (agencyId) => {
  * @param {{ alerts: object[], total: number }} data
  */
 export const setCachedAlerts = (agencyId, data) => {
+  if (!agencyId) return;
   store.set(agencyId.toString(), {
     data,
     expiresAt: Date.now() + TTL_MS,
