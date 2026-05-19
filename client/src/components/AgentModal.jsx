@@ -13,7 +13,7 @@ const AgentModal = ({ isOpen, onClose, candidateId, currentAgentId, onSuccess })
     if (!isOpen) return;
     setSelected(currentAgentId || null);
     setSearch("");
-    candidatesApi.getAgents().then((r) => setAgents(r.data)).catch(() => {});
+    candidatesApi.getAgents().then((r) => setAgents(r.data)).catch(() => showToast.error('Failed to load agents'));
   }, [isOpen, currentAgentId]);
 
   const filtered = agents.filter((a) =>

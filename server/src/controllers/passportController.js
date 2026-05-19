@@ -168,6 +168,18 @@ const createPassport = asyncHandler(async (req, res) => {
   res.status(201).json(populated);
 });
 
+const CANDIDATE_POPULATE_FIELDS = [
+  "fullName", "phone", "email", "status", "nationalIdNumber", "gender",
+  "dateOfBirth", "maritalStatus", "religion", "permanentProvince",
+  "permanentDistrict", "permanentMunicipality", "permanentWardNo",
+  "temporaryAddress", "temporaryMunicipality", "temporaryDistrict",
+  "temporaryProvince", "bankInfo", "training", "academic", "nomineeInfo",
+  "visaNumber", "visaIssuedDate", "visaReceivedDate", "visaExpiryDate",
+  "kdnBpaNo", "branchInfo", "desiredCountry", "desiredJobCategory", "skills",
+  "physicalAttributes", "workHistory", "workExperienceYears", "languagesKnown",
+  "education",
+].join(" ");
+
 const PASSPORT_LIST_POPULATE = [
   {
     path: "candidateId",
@@ -228,46 +240,7 @@ const getPassportById = asyncHandler(async (req, res) => {
       _id: req.params.id,
     }),
   )
-    .populate(
-      "candidateId",
-      [
-        "fullName",
-        "phone",
-        "email",
-        "status",
-        "nationalIdNumber",
-        "gender",
-        "dateOfBirth",
-        "maritalStatus",
-        "religion",
-        "permanentProvince",
-        "permanentDistrict",
-        "permanentMunicipality",
-        "permanentWardNo",
-        "temporaryAddress",
-        "temporaryMunicipality",
-        "temporaryDistrict",
-        "temporaryProvince",
-        "bankInfo",
-        "training",
-        "academic",
-        "nomineeInfo",
-        "visaNumber",
-        "visaIssuedDate",
-        "visaReceivedDate",
-        "visaExpiryDate",
-        "kdnBpaNo",
-        "branchInfo",
-        "desiredCountry",
-        "desiredJobCategory",
-        "skills",
-        "physicalAttributes",
-        "workHistory",
-        "workExperienceYears",
-        "languagesKnown",
-        "education",
-      ].join(" "),
-    )
+    .populate("candidateId", CANDIDATE_POPULATE_FIELDS)
     .populate("collectedBy", "name")
     .populate("returnedBy", "name")
     .populate(
@@ -648,40 +621,6 @@ const ensureCandidate = asyncHandler(async (req, res) => {
   );
   if (!passport) throw new AppError("Passport not found", 404);
 
-  const CANDIDATE_POPULATE_FIELDS = [
-    "fullName",
-    "phone",
-    "email",
-    "status",
-    "nationalIdNumber",
-    "gender",
-    "dateOfBirth",
-    "maritalStatus",
-    "religion",
-    "permanentProvince",
-    "permanentDistrict",
-    "permanentMunicipality",
-    "permanentWardNo",
-    "temporaryAddress",
-    "temporaryMunicipality",
-    "temporaryDistrict",
-    "temporaryProvince",
-    "bankInfo",
-    "training",
-    "academic",
-    "nomineeInfo",
-    "visaNumber",
-    "visaIssuedDate",
-    "visaReceivedDate",
-    "visaExpiryDate",
-    "kdnBpaNo",
-    "branchInfo",
-    "desiredCountry",
-    "desiredJobCategory",
-    "skills",
-    "physicalAttributes",
-    "workHistory",
-  ].join(" ");
 
   const setOnInsert = scopeData(req, {
     fullName: passport.fullName,

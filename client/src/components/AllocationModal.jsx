@@ -112,7 +112,7 @@ const AllocationModal = ({ isOpen, onClose, passport, onSuccess }) => {
       setDemandSearch('');
       setConfirming(false);
       // Load agents once
-      candidatesApi.getAgents().then(r => setAgentList(r.data || [])).catch(() => {});
+      candidatesApi.getAgents().then(r => setAgentList(r.data || [])).catch(() => showToast.error('Failed to load agents'));
     }
   }, [isOpen, passport]);
 

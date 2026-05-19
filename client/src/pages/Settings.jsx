@@ -651,7 +651,7 @@ const StaffSettings = () => {
     try {
       const result = await inviteUser(inviteData);
       if (result?.inviteLink) {
-        navigator.clipboard.writeText(result.inviteLink).catch(() => {});
+        navigator.clipboard.writeText(result.inviteLink).catch(() => showToast.error('Copy failed — please copy the invite link manually'));
         showToast.success('Invite link copied to clipboard — share it with the staff member');
       } else {
         showToast.success('User invited successfully');

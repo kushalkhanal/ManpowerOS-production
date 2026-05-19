@@ -21,115 +21,31 @@ import {
   getPublicIdFromUrl,
 } from "../middleware/upload.js";
 import logger from "../config/logger.js";
+import { DOCUMENT_CHECKLIST_KEYS } from "../utils/candidateChecklist.js";
+import { enrichWithCompliance, addDaysSinceRegistered } from "../utils/candidateEnrich.js";
+import {
+  buildPassportCollectionColumn,
+  buildMedicalColumn,
+  buildInsuranceColumn,
+  buildCallingVisaColumn,
+  buildVisaColumn,
+  buildFeeColumn,
+  buildFlightColumn,
+  buildDofeColumn,
+  buildDocPrepColumn,
+  buildDepartureColumn,
+  getNextAction,
+  getBlockedBy,
+} from "../builders/kanbanColumnBuilders.js";
 
-// 10-column workflow matching Nepal DoFE 5-phase process
-const DOCUMENT_CHECKLIST_KEYS = {
-  passport_collection: [
-    "passport_received",
-    "passport_verified",
-    "passport_renewed",
-  ],
-  medical: [
-    "medical_scheduled",
-    "medical_conducted",
-    "result_received",
-    "report_uploaded",
-  ],
-  insurance: [
-    "insurance_paid",
-    "policy_generated",
-    "ssf_registered",
-    "ssf_receipt",
-  ],
-  calling_visa: [
-    "demand_letter_confirmed",
-    "visa_number_obtained",
-    "visa_approval_confirmed",
-  ],
-  visa: ["embassy_submitted", "visa_stamped", "passport_returned"],
-  fee: ["fee_agreed", "partial_payment", "full_payment", "receipt_issued"],
-  flight: [
-    "ticket_booked",
-    "ticket_confirmed",
-    "airline_confirmed",
-    "airport_time_set",
-  ],
-  dofe: [
-    "orientation_certified",
-    "insurance_verified",
-    "medical_cert_valid",
-    "ssf_confirmed",
-    "shram_received",
-    "e_sticker_received",
-  ],
-  doc_prep: [
-    "all_docs_compiled",
-    "ticket_ready",
-    "briefing_done",
-    "docs_handed",
-  ],
-  departure: ["airport_reported", "flight_departed", "confirmation_received"],
-};
-
-const getChecklistValue = (checklistMap, columnId, itemKey, fallbackDone) => {
-  if (!checklistMap) return fallbackDone;
-  const mapKey = `${columnId}__${itemKey}`;
-  const mapValue = checklistMap[mapKey];
-  return typeof mapValue === "boolean" ? mapValue : fallbackDone;
-};
-
-const getChecklistMeta = (checklistMap, columnId, itemKey, fallbackDone) => {
-  const done = getChecklistValue(checklistMap, columnId, itemKey, fallbackDone);
-  return {
-    done,
-    autoDone: fallbackDone,
-    overridden: done !== fallbackDone,
-  };
-};
-
-const enrichWithCompliance = async (candidates) => {
-  if (!candidates.length) return candidates;
-  const ids = candidates.map((c) => c._id);
-  const [medicals, orientations, insuranceSsfs] = await Promise.all([
-    Medical.find({ candidateId: { $in: ids } }, "candidateId result").lean(),
-    Orientation.find(
-      { candidateId: { $in: ids } },
-      "candidateId completionStatus",
-    ).lean(),
-    InsuranceSsf.find(
-      { candidateId: { $in: ids } },
-      "candidateId insurancePaidDate insurancePolicyNumber ssfPaidDate ssfRegistrationNumber welfareFundPaid",
-    ).lean(),
-  ]);
-  const medMap = {},
-    oriMap = {},
-    insMap = {};
-  for (const m of medicals) medMap[m.candidateId.toString()] = m;
-  for (const o of orientations) oriMap[o.candidateId.toString()] = o;
-  for (const i of insuranceSsfs) insMap[i.candidateId.toString()] = i;
-  return candidates.map((c) => {
-    const cid = c._id.toString();
-    const ins = insMap[cid];
-    return {
-      ...c,
-      compliance: {
-        medical: medMap[cid]?.result === "fit",
-        orientation: oriMap[cid]?.completionStatus === "completed",
-        insurance: !!(ins?.insurancePaidDate && ins?.insurancePolicyNumber),
-        ssf: !!(ins?.ssfPaidDate && ins?.ssfRegistrationNumber),
-        welfare: ins?.welfareFundPaid === true,
-      },
-    };
-  });
-};
-
-const addDaysSinceRegistered = (c) => ({
-  ...c,
-  daysSinceRegistered: Math.floor(
-    (Date.now() - new Date(c.registeredAt || c.createdAt)) /
-      (1000 * 60 * 60 * 24),
-  ),
-});
+// Fields owned by the Passport record — must not be edited on Candidate directly
+// once a passportId is linked. Changes flow Passport → Candidate only.
+const PASSPORT_OWNED_FIELDS = [
+  "fullName",
+  "dateOfBirth",
+  "gender",
+  "passportNumber",
+];
 
 const getCandidates = asyncHandler(async (req, res) => {
   const {
@@ -360,15 +276,6 @@ const getCandidateById = asyncHandler(async (req, res) => {
   res.status(200).json(candidateData);
 });
 
-// Fields owned by the Passport record — must not be edited on Candidate directly
-// once a passportId is linked. Changes flow Passport → Candidate only.
-const PASSPORT_OWNED_FIELDS = [
-  "fullName",
-  "dateOfBirth",
-  "gender",
-  "passportNumber",
-];
-
 const updateCandidate = asyncHandler(async (req, res) => {
   const updates = { ...req.body };
   delete updates.agencyId;
@@ -529,7 +436,6 @@ const updateCandidate = asyncHandler(async (req, res) => {
     });
   }
 
-  // Log visa/feims/departure updates
   if (updates.visaNumber || updates.visaFileUrl) {
     await logActivity({
       candidateId: candidate._id,
@@ -599,10 +505,6 @@ const deleteCandidate = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "Candidate not found" });
   }
 
-  // CASCADING CLEANUP (Since transactions are not supported, we do sequential steps)
-
-  // 0. Collect Cloudinary URLs from candidate + related records before deletion,
-  // so we can clean them up after Mongo deletes succeed.
   const candidateFileFields = [
     "visaFileUrl",
     "feimsFileUrl",
@@ -636,7 +538,6 @@ const deleteCandidate = asyncHandler(async (req, res) => {
     if (d.ssfReceiptUrl) filesToDelete.push(d.ssfReceiptUrl);
   });
 
-  // 1. Revert Passport to in_pool
   if (candidate.passportId || candidate.passportNumber) {
     const passportFilter = { agencyId: req.user.agencyId };
     if (candidate.passportId) passportFilter._id = candidate.passportId;
@@ -653,25 +554,21 @@ const deleteCandidate = asyncHandler(async (req, res) => {
     });
   }
 
-  // 2. Decrement JobDemand filledPositions
   if (candidate.demandId) {
     await JobDemand.findByIdAndUpdate(candidate.demandId, {
       $inc: { filledPositions: -1 },
     });
   }
 
-  // 3. Delete all related records
   await Promise.all([
     Medical.deleteMany({ candidateId: candidate._id }),
     Orientation.deleteMany({ candidateId: candidate._id }),
     InsuranceSsf.deleteMany({ candidateId: candidate._id }),
     FeeTransaction.deleteMany({ candidateId: candidate._id }),
     Task.deleteMany({ candidateId: candidate._id }),
-    // Delete candidate itself
     Candidate.findByIdAndDelete(candidate._id),
   ]);
 
-  // 4. Fire-and-forget Cloudinary cleanup — don't block the response.
   if (filesToDelete.length > 0) {
     Promise.all(
       filesToDelete
@@ -858,63 +755,17 @@ const getCandidateKanban = asyncHandler(async (req, res) => {
   const checklistMap = candidate.documentChecklist?.toObject?.() || {};
   const stageNotes = candidate.stageNotes?.toObject?.() || {};
 
-  // 10-column 5-phase workflow
-  const passportCollectionColumn = buildPassportCollectionColumn(
-    passport,
-    checklistMap,
-    stageNotes,
-  );
-  const medicalColumn = buildMedicalColumn(medical, checklistMap, stageNotes);
-  const insuranceColumn = buildInsuranceColumn(
-    insuranceSsf,
-    checklistMap,
-    stageNotes,
-  );
-  const callingVisaColumn = buildCallingVisaColumn(
-    candidate,
-    demand,
-    checklistMap,
-    stageNotes,
-  );
-  const visaColumn = buildVisaColumn(
-    candidate,
-    passport,
-    checklistMap,
-    stageNotes,
-  );
-  const feeColumn = buildFeeColumn(
-    feeTransactions,
-    candidate.serviceFeeAgreed,
-    checklistMap,
-    stageNotes,
-  );
-  const flightColumn = buildFlightColumn(candidate, checklistMap, stageNotes);
-  const dofeColumn = buildDofeColumn(
-    candidate,
-    medical,
-    orientation,
-    insuranceSsf,
-    checklistMap,
-    stageNotes,
-  );
-  const docPrepColumn = buildDocPrepColumn(candidate, checklistMap, stageNotes);
-  const departureColumn = buildDepartureColumn(
-    candidate,
-    checklistMap,
-    stageNotes,
-  );
-
   const columns = [
-    passportCollectionColumn, // Phase 1
-    medicalColumn, // Phase 1
-    insuranceColumn, // Phase 2
-    callingVisaColumn, // Phase 2
-    visaColumn, // Phase 2
-    feeColumn, // Phase 2
-    flightColumn, // Phase 3
-    dofeColumn, // Phase 4
-    docPrepColumn, // Phase 5
-    departureColumn, // Phase 5
+    buildPassportCollectionColumn(passport, checklistMap, stageNotes),
+    buildMedicalColumn(medical, checklistMap, stageNotes),
+    buildInsuranceColumn(insuranceSsf, checklistMap, stageNotes),
+    buildCallingVisaColumn(candidate, demand, checklistMap, stageNotes),
+    buildVisaColumn(candidate, passport, checklistMap, stageNotes),
+    buildFeeColumn(feeTransactions, candidate.serviceFeeAgreed, checklistMap, stageNotes),
+    buildFlightColumn(candidate, checklistMap, stageNotes),
+    buildDofeColumn(candidate, medical, orientation, insuranceSsf, checklistMap, stageNotes),
+    buildDocPrepColumn(candidate, checklistMap, stageNotes),
+    buildDepartureColumn(candidate, checklistMap, stageNotes),
   ];
   const completeCount = columns.filter((c) => c.status === "complete").length;
 
@@ -939,913 +790,6 @@ const getCandidateKanban = asyncHandler(async (req, res) => {
     },
   });
 });
-
-// ─── Phase 1: Passport Collection ──────────────────────────────────────────
-const buildPassportCollectionColumn = (
-  passport,
-  checklistMap = {},
-  stageNotes = {},
-) => {
-  const withAgency = passport?.custodyStatus === "with_agency";
-  const checkItems = [
-    {
-      key: "passport_received",
-      label: "Passport received from candidate",
-      ...getChecklistMeta(
-        checklistMap,
-        "passport_collection",
-        "passport_received",
-        withAgency,
-      ),
-    },
-    {
-      key: "passport_verified",
-      label: "Passport details verified",
-      ...getChecklistMeta(
-        checklistMap,
-        "passport_collection",
-        "passport_verified",
-        withAgency && !!passport?.passportNumber,
-      ),
-    },
-    {
-      key: "passport_renewed",
-      label: "Renewal done (if needed)",
-      ...getChecklistMeta(
-        checklistMap,
-        "passport_collection",
-        "passport_renewed",
-        false,
-      ),
-    },
-  ];
-
-  let status = "pending";
-  if (passport) {
-    if (passport.custodyStatus === "submitted_embassy") status = "in_progress";
-    else if (passport.custodyStatus === "with_agency")
-      status = checkItems.every((i) => i.done) ? "complete" : "in_progress";
-    else status = "in_progress";
-  }
-
-  let daysUntilExpiry = null;
-  if (passport?.expiryDate) {
-    daysUntilExpiry = Math.ceil(
-      (new Date(passport.expiryDate) - new Date()) / (1000 * 60 * 60 * 24),
-    );
-    if (daysUntilExpiry < 0) status = "expired";
-    else if (daysUntilExpiry < 180 && status !== "pending") status = "expiring";
-  }
-
-  return {
-    id: "passport_collection",
-    title: "Passport Collection",
-    subtitle: passport?.passportNumber || "No passport linked",
-    icon: "passport",
-    phase: 1,
-    phaseLabel: "Phase 1 — Pre-processing",
-    status,
-    requiredFor: "Medical check",
-    data: passport,
-    uploads: passport?.scannedImageUrl
-      ? [{ label: "Passport Scan", url: passport.scannedImageUrl }]
-      : [],
-    hasOverrides: checkItems.some((i) => i.overridden),
-    lastUpdatedAt: passport?.updatedAt || null,
-    checkItems,
-    completedCount: checkItems.filter((i) => i.done).length,
-    totalCount: checkItems.length,
-    expiryDate: passport?.expiryDate || null,
-    daysUntilExpiry,
-    note: stageNotes["passport_collection"] || "",
-    canEdit: false,
-    canDelete: false,
-  };
-};
-
-// ─── Phase 1: Medical Check ─────────────────────────────────────────────────
-const buildMedicalColumn = (medical, checklistMap = {}, stageNotes = {}) => {
-  const checkItems = [
-    {
-      key: "medical_scheduled",
-      label: "Medical scheduled",
-      ...getChecklistMeta(
-        checklistMap,
-        "medical",
-        "medical_scheduled",
-        !!medical?.scheduledDate,
-      ),
-    },
-    {
-      key: "medical_conducted",
-      label: "Medical conducted",
-      ...getChecklistMeta(
-        checklistMap,
-        "medical",
-        "medical_conducted",
-        !!medical?.conductedDate,
-      ),
-    },
-    {
-      key: "result_received",
-      label: "Result received",
-      ...getChecklistMeta(
-        checklistMap,
-        "medical",
-        "result_received",
-        !!medical?.result && medical.result !== "pending",
-      ),
-    },
-    {
-      key: "report_uploaded",
-      label: "Report uploaded",
-      ...getChecklistMeta(
-        checklistMap,
-        "medical",
-        "report_uploaded",
-        !!medical?.reportFileUrl,
-      ),
-    },
-  ];
-
-  let status = "pending";
-  if (medical) {
-    if (medical.result === "unfit") status = "blocked";
-    else if (medical.result === "fit" && medical.reportFileUrl)
-      status = "complete";
-    else if (medical.scheduledDate || medical.conductedDate)
-      status = "in_progress";
-  }
-
-  let daysUntilExpiry = null;
-  if (medical?.reportExpiryDate) {
-    daysUntilExpiry = Math.ceil(
-      (new Date(medical.reportExpiryDate) - new Date()) / (1000 * 60 * 60 * 24),
-    );
-    if (daysUntilExpiry < 0) status = "expired";
-    else if (daysUntilExpiry < 30 && status === "complete") status = "expiring";
-  }
-
-  return {
-    id: "medical",
-    title: "Medical clearance",
-    subtitle: "GAMCA or Wafid",
-    icon: "stethoscope",
-    status,
-    requiredFor: "FEIMS submission",
-    data: medical,
-    uploads: medical?.reportFileUrl
-      ? [{ label: "Medical Report", url: medical.reportFileUrl }]
-      : [],
-    hasOverrides: checkItems.some((i) => i.overridden),
-    lastUpdatedAt: medical?.updatedAt || null,
-    checkItems,
-    completedCount: checkItems.filter((i) => i.done).length,
-    totalCount: checkItems.length,
-    expiryDate: medical?.reportExpiryDate || null,
-    daysUntilExpiry,
-    note: stageNotes["medical"] || "",
-    canEdit: true,
-    canDelete: true,
-  };
-};
-
-// ─── Phase 2: Insurance & SSF ───────────────────────────────────────────────
-const buildInsuranceColumn = (
-  insuranceSsf,
-  checklistMap = {},
-  stageNotes = {},
-) => {
-  const checkItems = [
-    {
-      key: "insurance_paid",
-      label: "Insurance paid",
-      ...getChecklistMeta(
-        checklistMap,
-        "insurance",
-        "insurance_paid",
-        !!insuranceSsf?.insurancePaidDate,
-      ),
-    },
-    {
-      key: "policy_generated",
-      label: "Policy generated",
-      ...getChecklistMeta(
-        checklistMap,
-        "insurance",
-        "policy_generated",
-        !!insuranceSsf?.insurancePolicyNumber,
-      ),
-    },
-    {
-      key: "ssf_registered",
-      label: "SSF registered",
-      ...getChecklistMeta(
-        checklistMap,
-        "insurance",
-        "ssf_registered",
-        !!insuranceSsf?.ssfPaidDate,
-      ),
-    },
-    {
-      key: "ssf_receipt",
-      label: "SSF receipt",
-      ...getChecklistMeta(
-        checklistMap,
-        "insurance",
-        "ssf_receipt",
-        !!insuranceSsf?.ssfReceiptNumber,
-      ),
-    },
-  ];
-
-  let status = "pending";
-  if (insuranceSsf) {
-    if (insuranceSsf.overallStatus === "completed") status = "complete";
-    else if (insuranceSsf.overallStatus === "partially_done")
-      status = "in_progress";
-  }
-
-  let daysUntilExpiry = null;
-  if (insuranceSsf?.insuranceExpiryDate) {
-    daysUntilExpiry = Math.ceil(
-      (new Date(insuranceSsf.insuranceExpiryDate) - new Date()) /
-        (1000 * 60 * 60 * 24),
-    );
-    if (daysUntilExpiry < 0) status = "expired";
-    else if (daysUntilExpiry < 30 && status === "complete") status = "expiring";
-  }
-
-  return {
-    id: "insurance",
-    title: "Insurance & SSF",
-    subtitle: "Social Security Fund",
-    icon: "shield",
-    phase: 2,
-    phaseLabel: "Phase 2 — Insurance & Visa",
-    status,
-    requiredFor: "Calling visa",
-    data: insuranceSsf,
-    uploads: [
-      ...(insuranceSsf?.insurancePaidReceiptUrl
-        ? [
-            {
-              label: "Insurance Receipt",
-              url: insuranceSsf.insurancePaidReceiptUrl,
-            },
-          ]
-        : []),
-      ...(insuranceSsf?.ssfReceiptUrl
-        ? [{ label: "SSF Receipt", url: insuranceSsf.ssfReceiptUrl }]
-        : []),
-    ],
-    hasOverrides: checkItems.some((i) => i.overridden),
-    lastUpdatedAt: insuranceSsf?.updatedAt || null,
-    checkItems,
-    completedCount: checkItems.filter((i) => i.done).length,
-    totalCount: checkItems.length,
-    expiryDate: insuranceSsf?.insuranceExpiryDate || null,
-    daysUntilExpiry,
-    note: stageNotes["insurance"] || "",
-    canEdit: true,
-    canDelete: true,
-  };
-};
-
-// ─── Phase 2: Calling Visa (Demand Letter) ──────────────────────────────────
-const buildCallingVisaColumn = (
-  candidate,
-  demand,
-  checklistMap = {},
-  stageNotes = {},
-) => {
-  const checkItems = [
-    {
-      key: "demand_letter_confirmed",
-      label: "Demand letter confirmed",
-      ...getChecklistMeta(
-        checklistMap,
-        "calling_visa",
-        "demand_letter_confirmed",
-        !!candidate.demandId,
-      ),
-    },
-    {
-      key: "visa_number_obtained",
-      label: "Visa number obtained from employer",
-      ...getChecklistMeta(
-        checklistMap,
-        "calling_visa",
-        "visa_number_obtained",
-        !!candidate.visaNumber,
-      ),
-    },
-    {
-      key: "visa_approval_confirmed",
-      label: "Visa approval confirmed",
-      ...getChecklistMeta(
-        checklistMap,
-        "calling_visa",
-        "visa_approval_confirmed",
-        false,
-      ),
-    },
-  ];
-
-  let status = "pending";
-  if (candidate.demandId) {
-    if (candidate.visaNumber)
-      status = checkItems.every((i) => i.done) ? "complete" : "in_progress";
-    else status = "in_progress";
-  }
-
-  return {
-    id: "calling_visa",
-    title: "Calling Visa",
-    subtitle: demand?.employerCountry
-      ? `Demand: ${demand.employerCountry}`
-      : "Employer demand letter",
-    icon: "file",
-    phase: 2,
-    phaseLabel: "Phase 2 — Insurance & Visa",
-    status,
-    requiredFor: "Visa stamping",
-    data: {
-      demandId: candidate.demandId,
-      visaNumber: candidate.visaNumber,
-      visaReceivedDate: candidate.visaReceivedDate,
-      demandCountry: demand?.employerCountry || "",
-      demandCompany: demand?.employerCompanyName || "",
-    },
-    uploads: [],
-    hasOverrides: checkItems.some((i) => i.overridden),
-    lastUpdatedAt: candidate.updatedAt || null,
-    checkItems,
-    completedCount: checkItems.filter((i) => i.done).length,
-    totalCount: checkItems.length,
-    expiryDate: null,
-    daysUntilExpiry: null,
-    note: stageNotes["calling_visa"] || "",
-    canEdit: true,
-    canDelete: false,
-  };
-};
-
-// ─── Phase 2: Visa Stamping ─────────────────────────────────────────────────
-const buildVisaColumn = (
-  candidate,
-  passport,
-  checklistMap = {},
-  stageNotes = {},
-) => {
-  const checkItems = [
-    {
-      key: "embassy_submitted",
-      label: "Passport submitted to embassy",
-      ...getChecklistMeta(
-        checklistMap,
-        "visa",
-        "embassy_submitted",
-        passport?.custodyStatus === "submitted_embassy",
-      ),
-    },
-    {
-      key: "visa_stamped",
-      label: "Visa stamped on passport",
-      ...getChecklistMeta(
-        checklistMap,
-        "visa",
-        "visa_stamped",
-        !!candidate.visaFileUrl,
-      ),
-    },
-    {
-      key: "passport_returned",
-      label: "Passport returned to office",
-      ...getChecklistMeta(
-        checklistMap,
-        "visa",
-        "passport_returned",
-        !!candidate.visaFileUrl && passport?.custodyStatus === "with_agency",
-      ),
-    },
-  ];
-
-  let status = "pending";
-  if (candidate.visaNumber) {
-    if (candidate.visaFileUrl) status = "complete";
-    else if (passport?.custodyStatus === "submitted_embassy")
-      status = "in_progress";
-    else status = "in_progress";
-  }
-
-  return {
-    id: "visa",
-    title: "Visa Stamping",
-    subtitle: "Embassy visa stamp",
-    icon: "stamp",
-    phase: 2,
-    phaseLabel: "Phase 2 — Insurance & Visa",
-    status,
-    requiredFor: "Flight booking",
-    data: {
-      visaNumber: candidate.visaNumber,
-      visaReceivedDate: candidate.visaReceivedDate,
-      visaExpiryDate: candidate.visaExpiryDate,
-      visaFileUrl: candidate.visaFileUrl,
-    },
-    uploads: candidate.visaFileUrl
-      ? [{ label: "Visa Document", url: candidate.visaFileUrl }]
-      : [],
-    hasOverrides: checkItems.some((i) => i.overridden),
-    lastUpdatedAt: candidate.updatedAt || null,
-    checkItems,
-    completedCount: checkItems.filter((i) => i.done).length,
-    totalCount: checkItems.length,
-    expiryDate: candidate.visaExpiryDate || null,
-    daysUntilExpiry: candidate.visaExpiryDate
-      ? Math.ceil(
-          (new Date(candidate.visaExpiryDate) - new Date()) /
-            (1000 * 60 * 60 * 24),
-        )
-      : null,
-    note: stageNotes["visa"] || "",
-    canEdit: true,
-    canDelete: true,
-  };
-};
-
-// ─── Phase 2: Service Fee ───────────────────────────────────────────────────
-const buildFeeColumn = (
-  transactions,
-  serviceFeeAgreed,
-  checklistMap = {},
-  stageNotes = {},
-) => {
-  const totalReceived = transactions.reduce((sum, t) => sum + t.amountNPR, 0);
-  const checkItems = [
-    {
-      key: "fee_agreed",
-      label: "Fee agreed",
-      ...getChecklistMeta(
-        checklistMap,
-        "fee",
-        "fee_agreed",
-        !!serviceFeeAgreed,
-      ),
-    },
-    {
-      key: "partial_payment",
-      label: "Partial payment",
-      ...getChecklistMeta(
-        checklistMap,
-        "fee",
-        "partial_payment",
-        totalReceived > 0,
-      ),
-    },
-    {
-      key: "full_payment",
-      label: "Full payment",
-      ...getChecklistMeta(
-        checklistMap,
-        "fee",
-        "full_payment",
-        totalReceived >= (serviceFeeAgreed || 0),
-      ),
-    },
-    {
-      key: "receipt_issued",
-      label: "Receipt issued",
-      ...getChecklistMeta(
-        checklistMap,
-        "fee",
-        "receipt_issued",
-        transactions.some((t) => t.receiptUrl),
-      ),
-    },
-  ];
-  const feeLastUpdatedAt = transactions.reduce((latest, t) => {
-    const ts = t?.updatedAt || t?.createdAt || t?.paidAt;
-    return ts && (!latest || new Date(ts) > new Date(latest)) ? ts : latest;
-  }, null);
-
-  let status = "pending";
-  if (transactions.length > 0) {
-    if (totalReceived >= (serviceFeeAgreed || 0)) status = "complete";
-    else status = "in_progress";
-  }
-
-  return {
-    id: "fee",
-    title: "Service Fee",
-    subtitle: "Payment collection",
-    icon: "rupee",
-    phase: 2,
-    phaseLabel: "Phase 2 — Insurance & Visa",
-    status,
-    requiredFor: "Visa processing",
-    data: { transactions, totalReceived, serviceFeeAgreed },
-    uploads: transactions
-      .filter((t) => t.receiptUrl)
-      .slice(0, 3)
-      .map((t, idx) => ({ label: `Receipt ${idx + 1}`, url: t.receiptUrl })),
-    hasOverrides: checkItems.some((i) => i.overridden),
-    lastUpdatedAt: feeLastUpdatedAt,
-    checkItems,
-    completedCount: checkItems.filter((i) => i.done).length,
-    totalCount: checkItems.length,
-    expiryDate: null,
-    daysUntilExpiry: null,
-    note: stageNotes["fee"] || "",
-    canEdit: true,
-    canDelete: false,
-  };
-};
-
-// ─── Phase 3: Flight Booking ────────────────────────────────────────────────
-const buildFlightColumn = (candidate, checklistMap = {}, stageNotes = {}) => {
-  const checkItems = [
-    {
-      key: "ticket_booked",
-      label: "Flight ticket booked",
-      ...getChecklistMeta(
-        checklistMap,
-        "flight",
-        "ticket_booked",
-        !!candidate.flightDate,
-      ),
-    },
-    {
-      key: "ticket_confirmed",
-      label: "Flight number confirmed",
-      ...getChecklistMeta(
-        checklistMap,
-        "flight",
-        "ticket_confirmed",
-        !!candidate.flightNumber,
-      ),
-    },
-    {
-      key: "airline_confirmed",
-      label: "Airline confirmed",
-      ...getChecklistMeta(
-        checklistMap,
-        "flight",
-        "airline_confirmed",
-        !!candidate.airline,
-      ),
-    },
-    {
-      key: "airport_time_set",
-      label: "Airport report time set",
-      ...getChecklistMeta(
-        checklistMap,
-        "flight",
-        "airport_time_set",
-        !!candidate.airportReportingTime,
-      ),
-    },
-  ];
-
-  let status = "pending";
-  if (candidate.flightDate) {
-    status =
-      candidate.flightNumber && candidate.airline ? "complete" : "in_progress";
-  }
-
-  return {
-    id: "flight",
-    title: "Flight Booking",
-    subtitle: candidate.flightDate
-      ? `${candidate.airline || ""} ${candidate.flightNumber || ""}`.trim() ||
-        new Date(candidate.flightDate).toLocaleDateString("en-GB")
-      : "Book departure flight",
-    icon: "plane",
-    phase: 3,
-    phaseLabel: "Phase 3 — Travel Booking",
-    status,
-    requiredFor: "DoFE clearance",
-    data: {
-      flightDate: candidate.flightDate,
-      flightNumber: candidate.flightNumber,
-      airline: candidate.airline,
-      airportReportingTime: candidate.airportReportingTime,
-    },
-    uploads: candidate.departureFileUrl
-      ? [{ label: "Flight Ticket", url: candidate.departureFileUrl }]
-      : [],
-    hasOverrides: checkItems.some((i) => i.overridden),
-    lastUpdatedAt: candidate.updatedAt || null,
-    checkItems,
-    completedCount: checkItems.filter((i) => i.done).length,
-    totalCount: checkItems.length,
-    expiryDate: candidate.flightDate || null,
-    daysUntilExpiry: candidate.flightDate
-      ? Math.ceil(
-          (new Date(candidate.flightDate) - new Date()) / (1000 * 60 * 60 * 24),
-        )
-      : null,
-    note: stageNotes["flight"] || "",
-    canEdit: true,
-    canDelete: false,
-  };
-};
-
-// ─── Phase 4: DoFE / FEIMS Clearance ────────────────────────────────────────
-const buildDofeColumn = (
-  candidate,
-  medical,
-  orientation,
-  insuranceSsf,
-  checklistMap = {},
-  stageNotes = {},
-) => {
-  const medicalValid =
-    medical?.result === "fit" &&
-    (!medical?.reportExpiryDate ||
-      new Date(medical.reportExpiryDate) > new Date());
-
-  const checkItems = [
-    {
-      key: "orientation_certified",
-      label: "Orientation certified (PDOT)",
-      ...getChecklistMeta(
-        checklistMap,
-        "dofe",
-        "orientation_certified",
-        orientation?.completionStatus === "completed" &&
-          !!orientation?.certificateFileUrl,
-      ),
-    },
-    {
-      key: "insurance_verified",
-      label: "Insurance verified at DoFE",
-      ...getChecklistMeta(
-        checklistMap,
-        "dofe",
-        "insurance_verified",
-        insuranceSsf?.overallStatus === "completed",
-      ),
-    },
-    {
-      key: "medical_cert_valid",
-      label: "Medical certificate valid",
-      ...getChecklistMeta(
-        checklistMap,
-        "dofe",
-        "medical_cert_valid",
-        medicalValid,
-      ),
-    },
-    {
-      key: "ssf_confirmed",
-      label: "SSF (Social Security Fund)",
-      ...getChecklistMeta(
-        checklistMap,
-        "dofe",
-        "ssf_confirmed",
-        !!insuranceSsf?.ssfReceiptNumber,
-      ),
-    },
-    {
-      key: "shram_received",
-      label: "Shram Swikriti received",
-      ...getChecklistMeta(
-        checklistMap,
-        "dofe",
-        "shram_received",
-        !!candidate.shramSwikritiNumber,
-      ),
-    },
-    {
-      key: "e_sticker_received",
-      label: "E-Sticker received",
-      ...getChecklistMeta(
-        checklistMap,
-        "dofe",
-        "e_sticker_received",
-        !!candidate.eStickerNumber,
-      ),
-    },
-  ];
-
-  let status = "pending";
-  if (candidate.shramSwikritiNumber && candidate.eStickerNumber) {
-    status = "complete";
-  } else if (
-    orientation ||
-    candidate.shramSwikritiNumber ||
-    candidate.eStickerNumber
-  ) {
-    status = "in_progress";
-  }
-
-  return {
-    id: "dofe",
-    title: "DoFE Clearance",
-    subtitle: candidate.shramSwikritiNumber
-      ? `Shram: ${candidate.shramSwikritiNumber}`
-      : "Shram Swikriti",
-    icon: "shield-check",
-    phase: 4,
-    phaseLabel: "Phase 4 — DoFE / FEIMS Clearance",
-    status,
-    requiredFor: "Final departure",
-    data: {
-      shramSwikritiNumber: candidate.shramSwikritiNumber,
-      eStickerNumber: candidate.eStickerNumber,
-      feimsSubmittedAt: candidate.feimsSubmittedAt,
-      feimsFileUrl: candidate.feimsFileUrl,
-      orientation: orientation || null,
-    },
-    uploads: [
-      ...(candidate.feimsFileUrl
-        ? [{ label: "FEIMS Document", url: candidate.feimsFileUrl }]
-        : []),
-      ...(orientation?.certificateFileUrl
-        ? [
-            {
-              label: "Orientation Certificate",
-              url: orientation.certificateFileUrl,
-            },
-          ]
-        : []),
-    ],
-    hasOverrides: checkItems.some((i) => i.overridden),
-    lastUpdatedAt: candidate.updatedAt || null,
-    checkItems,
-    completedCount: checkItems.filter((i) => i.done).length,
-    totalCount: checkItems.length,
-    expiryDate: null,
-    daysUntilExpiry: null,
-    note: stageNotes["dofe"] || "",
-    canEdit: true,
-    canDelete: false,
-  };
-};
-
-// ─── Phase 5: Document Preparation ─────────────────────────────────────────
-const buildDocPrepColumn = (candidate, checklistMap = {}, stageNotes = {}) => {
-  const checkItems = [
-    {
-      key: "all_docs_compiled",
-      label: "All documents compiled",
-      ...getChecklistMeta(checklistMap, "doc_prep", "all_docs_compiled", false),
-    },
-    {
-      key: "ticket_ready",
-      label: "Flight ticket printed / ready",
-      ...getChecklistMeta(checklistMap, "doc_prep", "ticket_ready", false),
-    },
-    {
-      key: "briefing_done",
-      label: "Pre-departure briefing done",
-      ...getChecklistMeta(checklistMap, "doc_prep", "briefing_done", false),
-    },
-    {
-      key: "docs_handed",
-      label: "Docs handed to candidate",
-      ...getChecklistMeta(checklistMap, "doc_prep", "docs_handed", false),
-    },
-  ];
-
-  const completedCount = checkItems.filter((i) => i.done).length;
-  let status = "pending";
-  if (completedCount === checkItems.length) status = "complete";
-  else if (completedCount > 0) status = "in_progress";
-
-  return {
-    id: "doc_prep",
-    title: "Document Prep",
-    subtitle: "Pre-departure checklist",
-    icon: "clipboard",
-    phase: 5,
-    phaseLabel: "Phase 5 — Final Departure",
-    status,
-    requiredFor: "Final departure",
-    data: null,
-    uploads: [],
-    hasOverrides: checkItems.some((i) => i.overridden),
-    lastUpdatedAt: null,
-    checkItems,
-    completedCount,
-    totalCount: checkItems.length,
-    expiryDate: null,
-    daysUntilExpiry: null,
-    note: stageNotes["doc_prep"] || "",
-    canEdit: false,
-    canDelete: false,
-  };
-};
-
-// ─── Phase 5: Final Departure ───────────────────────────────────────────────
-const buildDepartureColumn = (
-  candidate,
-  checklistMap = {},
-  stageNotes = {},
-) => {
-  const checkItems = [
-    {
-      key: "airport_reported",
-      label: "Reported at airport",
-      ...getChecklistMeta(checklistMap, "departure", "airport_reported", false),
-    },
-    {
-      key: "flight_departed",
-      label: "Flight departed",
-      ...getChecklistMeta(
-        checklistMap,
-        "departure",
-        "flight_departed",
-        !!candidate.departedAt,
-      ),
-    },
-    {
-      key: "confirmation_received",
-      label: "Safe arrival confirmed",
-      ...getChecklistMeta(
-        checklistMap,
-        "departure",
-        "confirmation_received",
-        false,
-      ),
-    },
-  ];
-
-  let status = "pending";
-  if (candidate.departedAt) status = "complete";
-  else if (candidate.departureStatus === "scheduled") status = "in_progress";
-
-  return {
-    id: "departure",
-    title: "Final Departure",
-    subtitle: candidate.flightDate
-      ? new Date(candidate.flightDate).toLocaleDateString("en-GB")
-      : "Departure date",
-    icon: "plane-takeoff",
-    phase: 5,
-    phaseLabel: "Phase 5 — Final Departure",
-    status,
-    requiredFor: "Completion",
-    data: {
-      flightDate: candidate.flightDate,
-      flightNumber: candidate.flightNumber,
-      airline: candidate.airline,
-      airportReportingTime: candidate.airportReportingTime,
-      departureStatus: candidate.departureStatus,
-      departedAt: candidate.departedAt,
-    },
-    uploads: [],
-    hasOverrides: checkItems.some((i) => i.overridden),
-    lastUpdatedAt: candidate.departedAt || candidate.updatedAt || null,
-    checkItems,
-    completedCount: checkItems.filter((i) => i.done).length,
-    totalCount: checkItems.length,
-    expiryDate: candidate.flightDate || null,
-    daysUntilExpiry: candidate.flightDate
-      ? Math.ceil(
-          (new Date(candidate.flightDate) - new Date()) / (1000 * 60 * 60 * 24),
-        )
-      : null,
-    note: stageNotes["departure"] || "",
-    canEdit: true,
-    canDelete: false,
-  };
-};
-
-const getNextAction = (columns) => {
-  const pending = columns.find((c) => c.status === "pending");
-  const inProgress = columns.find((c) => c.status === "in_progress");
-
-  if (pending) {
-    const actions = {
-      passport_collection: "Collect passport from candidate",
-      medical: "Schedule GAMCA/Wafid medical check",
-      insurance: "Complete insurance & SSF payment",
-      calling_visa: "Confirm demand letter & visa number",
-      visa: "Submit passport to embassy for stamping",
-      fee: "Collect service fee",
-      flight: "Book departure flight",
-      dofe: "Submit for DoFE/FEIMS clearance (Shram)",
-      doc_prep: "Compile all pre-departure documents",
-      departure: "Confirm final departure",
-    };
-    return actions[pending.id] || `Start ${pending.title}`;
-  }
-  if (inProgress) {
-    return `Complete ${inProgress.title} requirements`;
-  }
-  return null;
-};
-
-const getBlockedBy = (columns) => {
-  const blocked = columns.find((c) => c.status === "blocked");
-  if (blocked?.id === "medical" && blocked.data?.result === "unfit") {
-    return "Medical result: UNFIT — Schedule recheck";
-  }
-  return null;
-};
 
 const markColumnComplete = asyncHandler(async (req, res) => {
   const { id: candidateId } = req.params;
@@ -1884,19 +828,6 @@ const markColumnComplete = asyncHandler(async (req, res) => {
     dofe: "DoFE Clearance",
     doc_prep: "Document Preparation",
     departure: "Final Departure",
-  };
-
-  const actionDetails = {
-    passport_collection: "Passport collection marked complete",
-    medical: "Medical check marked complete",
-    insurance: "Insurance & SSF marked complete",
-    calling_visa: "Calling visa marked complete",
-    visa: "Visa stamping marked complete",
-    fee: "Service fee marked complete",
-    flight: "Flight booking marked complete",
-    dofe: "DoFE clearance marked complete",
-    doc_prep: "Document preparation marked complete",
-    departure: "Final departure marked complete",
   };
 
   let newStatus = candidate.status;
@@ -2108,11 +1039,6 @@ export default {
   getCandidateActivityLogs,
   saveStageNote,
 
-  /**
-   * Unassign candidate from their current demand.
-   * Keeps both sides in sync: updates demand's assignedCandidates/filledPositions
-   * and clears candidate's demandId.
-   */
   unassignFromDemand: asyncHandler(async (req, res) => {
     const { id: candidateId } = req.params;
     const agencyId = req.user.agencyId;
@@ -2129,7 +1055,6 @@ export default {
         .json({ message: "Candidate is not assigned to any demand" });
     }
 
-    // Update demand: pull candidate and decrement filledPositions
     const demand = await JobDemand.findOneAndUpdate(
       { _id: demandId, agencyId, assignedCandidates: candidateId },
       {
@@ -2145,7 +1070,6 @@ export default {
         .json({ message: "Demand not found or candidate not assigned" });
     }
 
-    // Revert demand status if it was filled
     if (
       demand.status === "filled" &&
       demand.filledPositions < demand.totalPositions
@@ -2153,12 +1077,10 @@ export default {
       await JobDemand.findByIdAndUpdate(demand._id, { status: "active" });
     }
 
-    // Clear candidate side
     await Candidate.findByIdAndUpdate(candidateId, {
       $unset: { demandId: 1, assignedDemand: 1 },
     });
 
-    // Return passport to pool
     const passportFilter = { agencyId };
     if (candidate.passportId) passportFilter._id = candidate.passportId;
     else if (candidate.passportNumber)
@@ -2175,7 +1097,6 @@ export default {
       });
     }
 
-    // Recompute candidate status
     await computeAndSaveCandidateStatus(candidateId);
 
     const updatedCandidate = await Candidate.findById(candidateId)
@@ -2253,12 +1174,6 @@ export default {
       .json({ candidate, medical, orientation, insurance, demand, passport });
   }),
 
-  /**
-   * Bulk hydrate candidates for client-side export.
-   * Accepts up to 2000 ids; returns full records joined with passport,
-   * demand, latest medical / orientation / insurance docs.
-   * Tenant-scoped; ignores ids that don't belong to the user's agency.
-   */
   exportBatch: asyncHandler(async (req, res) => {
     const { ids } = req.body || {};
     if (!Array.isArray(ids) || !ids.length) {
@@ -2284,7 +1199,6 @@ export default {
 
     const candidateIds = candidates.map((c) => c._id);
 
-    // Fetch latest related docs for all candidates in parallel
     const [allMedicals, allOrientations, allInsurances] = await Promise.all([
       Medical.find({ candidateId: { $in: candidateIds } })
         .sort({ createdAt: -1 })
@@ -2297,12 +1211,11 @@ export default {
         .lean(),
     ]);
 
-    // Index latest record per candidate
     const indexLatest = (docs) => {
       const map = new Map();
       for (const d of docs) {
         const key = String(d.candidateId);
-        if (!map.has(key)) map.set(key, d); // first wins due to sort desc
+        if (!map.has(key)) map.set(key, d);
       }
       return map;
     };
@@ -2326,11 +1239,6 @@ export default {
   }),
 
   updateProfileSection: asyncHandler(async (req, res) => {
-    // ── COMPLETE REWRITE using raw MongoDB driver ──────────────────────────
-    // Mongoose's findOneAndUpdate + strict-mode subdocument cast was silently
-    // dropping `physicalAttributes` and `workHistory` writes on this candidate
-    // collection. We bypass Mongoose entirely for the write+read so MongoDB
-    // sees the data exactly as the client sent it.
     const allowedKeys = [
       "bankInfo",
       "training",
@@ -2365,8 +1273,6 @@ export default {
       return res.status(400).json({ message: "No valid fields to update" });
     }
 
-    // Build scoped filter using raw ObjectIds — the native MongoDB driver does
-    // exact-type matching so both _id and agencyId must be ObjectId, not strings.
     const scoped = scopeFilter(req, {});
     const rawFilter = {
       _id: new mongoose.Types.ObjectId(req.params.id),
@@ -2375,7 +1281,7 @@ export default {
         : {}),
     };
 
-    // RAW MongoDB driver write — no Mongoose, no strict mode, no subdoc cast
+    // RAW MongoDB driver write — bypasses Mongoose strict mode for physicalAttributes/workHistory
     const writeResult = await Candidate.collection.updateOne(rawFilter, {
       $set: updates,
     });
@@ -2384,7 +1290,6 @@ export default {
       return res.status(404).json({ message: "Candidate not found" });
     }
 
-    // RAW MongoDB driver read — no Mongoose hydration, no field stripping
     const candidate = await Candidate.collection.findOne(rawFilter);
 
     res.status(200).json({ success: true, candidate });
